@@ -327,6 +327,12 @@
           <option>TOÁN</option><option>LÝ</option><option>HÓA</option><option>SỬ</option><option>VĂN</option>
         </select>
       </label>
+      <label>Mức độ nhớ
+        <select id="fGrade">
+          <option selected>Mới học</option><option>Rất khó</option><option>Khó</option><option>Bình thường</option><option>Dễ</option>
+        </select>
+        <span style="display:block; font-weight:400; color:var(--muted); font-size:12.5px; margin-top:3px">Vừa học xong thì để “Mới học” như trong Sheet.</span>
+      </label>
       <label>Ngày học
         <input id="fDate" type="date" required>
       </label>
@@ -864,6 +870,7 @@ function openAdd() {
   const d = new Date();
   const iso = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
   document.getElementById("fDate").value = iso;
+  document.getElementById("fGrade").value = "Mới học";
   addOverlay.classList.add("open");
 }
 function closeAdd() { addOverlay.classList.remove("open"); }
@@ -883,6 +890,7 @@ document.getElementById("addForm").addEventListener("submit", async function (ev
   const topic = document.getElementById("fTopic").value.trim();
   if (!topic) { fail("Chưa nhập Chủ đề."); return; }
   const subject = document.getElementById("fSubject").value;
+  const grade = document.getElementById("fGrade").value;
   const dateStr = toDMY(document.getElementById("fDate").value);
   if (!dateStr) { fail("Ngày học chưa hợp lệ."); return; }
   const notebook = document.getElementById("fNotebook").value.trim();
@@ -908,10 +916,11 @@ document.getElementById("addForm").addEventListener("submit", async function (ev
       if (!v || !String(v).trim()) { rowNum = i + 2; break; }
     }
     if (rowNum < 0) throw new Error("Bảng ôn tập đã đầy 200 dòng.");
-    /* Ghi đúng 6 ô nội dung — KHÔNG ghi cột công thức G/H/O/Q, ô tick I, và KHÔNG đụng tab Hôm nay cần ôn */
+    /* Ghi đúng 7 ô nội dung — KHÔNG ghi cột công thức G/H/O/Q, ô tick I, và KHÔNG đụng tab Hôm nay cần ôn */
     const data = [
       { range: SR_TAB + "!A" + rowNum, values: [[topic]] },
       { range: SR_TAB + "!B" + rowNum, values: [[subject]] },
+      { range: SR_TAB + "!C" + rowNum, values: [[grade]] },
       { range: SR_TAB + "!D" + rowNum, values: [[dateStr]] },
       { range: SR_TAB + "!J" + rowNum, values: [[notebook]] },
       { range: SR_TAB + "!K" + rowNum, values: [[mistakes]] },
