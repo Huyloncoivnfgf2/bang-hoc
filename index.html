@@ -159,6 +159,10 @@
     .gside-item.active{border-color:var(--accent); box-shadow:var(--shadow)}
     .gside-item .gs-meta{margin-left:auto; text-align:right; color:var(--muted); font-size:12.5px; line-height:1.5}
     .gside-item .gs-meta b{color:var(--ink); font-size:13.5px}
+    .gside-item{flex-wrap:wrap}
+    .gsbar{flex:1 1 100%; height:7px; background:var(--gray-soft); border-radius:99px; overflow:hidden}
+    .gsbar i{display:block; height:100%; border-radius:99px; animation:barGrow .7s cubic-bezier(.22,.8,.3,1) both}
+
     .gmain .rows{max-height:560px; overflow-y:auto; padding-right:4px; scrollbar-width:thin}
     .rows.solo{max-height:560px; overflow-y:auto; padding-right:4px; scrollbar-width:thin}
   }
@@ -620,6 +624,7 @@ function renderToday() {
     }).join("") + '</div>';
     /* Máy tính: cột trái là danh mục môn, cột phải là bài của môn gấp nhất */
     const first = groupList[0];
+    const totT = groupList.reduce(function (a, g) { return a + g.items.length; }, 0) || 1;
     const side = '<div class="gside">' + groupList.map(function (g) {
       const s2 = subjStyle(g.name);
       const worst = Math.max.apply(null, g.items.map(overdueDays));
@@ -627,7 +632,8 @@ function renderToday() {
       const nO = g.items.filter(function (L) { return overdueDays(L) > 0; }).length;
       return '<button type="button" class="gside-item' + (g === first ? " active" : "") + '" data-g="' + esc(g.name) + '" onclick="setTodaySubj(this.getAttribute(\'data-g\'))">' +
         '<span class="subj" style="background:' + s2.bg + ';color:' + s2.fg + '">' + esc(g.name) + '</span>' +
-        '<span class="gs-meta"><b>' + g.items.length + ' bài</b> · ' + nO + ' trễ hạn<br>Trễ nhất ' + worst + ' ngày · Nhớ thấp nhất ' + (lowR === 999 ? "—" : lowR + "%") + '</span></button>';
+        '<span class="gs-meta"><b>' + g.items.length + ' bài</b> · ' + nO + ' trễ hạn<br>Trễ nhất ' + worst + ' ngày · Nhớ thấp nhất ' + (lowR === 999 ? "—" : lowR + "%") + '</span>' +
+        '<span class="gsbar"><i style="background:' + s2.bar + ';width:' + Math.round(g.items.length / totT * 100) + '%"></i></span></button>';
     }).join("") + '</div>';
     const detail = '<div class="gmain"><div class="grouphead">' + headHTML(first, "") + '</div>' +
       '<div class="rows">' + first.items.map(function (L) { return rowHTML(L, idx++); }).join("") + '</div></div>';
