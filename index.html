@@ -196,15 +196,16 @@
   .review-msg{margin-top:10px; font-size:14px; line-height:1.5}
 
   /* Bảng chấm mức nhớ (hiện riêng khi bấm Đã ôn) */
-  #gradeOverlay{z-index:70}
-  .grademodal{max-width:480px}
-  .grade-list{display:flex; flex-direction:column; gap:9px; margin-top:14px}
-  .gradeopt{display:flex; gap:12px; align-items:flex-start; width:100%; text-align:left; border:1.5px solid var(--line); background:#fff; border-radius:14px; padding:12px 14px; cursor:pointer; font:inherit; transition:border-color .15s ease, background .15s ease}
-  .gradeopt:hover{border-color:var(--accent)}
+  #gradeOverlay{z-index:70; background:rgba(15,23,42,.55)}
+  .grademodal{max-width:480px; padding:22px}
+  .grade-list{display:flex; flex-direction:column; gap:10px; margin-top:14px}
+  .gradeopt{display:flex; gap:12px; align-items:center; width:100%; text-align:left; border:1.5px solid transparent; border-radius:16px; padding:13px 15px; cursor:pointer; font:inherit; transition:transform .12s ease, box-shadow .12s ease}
+  .gradeopt:hover{box-shadow:0 4px 14px rgba(26,35,50,.12)}
+  .gradeopt:active{transform:scale(.99)}
   .gradeopt:disabled{opacity:.55; cursor:default}
-  .gradeopt .gdot{flex:none; width:12px; height:12px; border-radius:50%; margin-top:5px}
-  .gradeopt b{display:block; font-size:15.5px}
-  .gradeopt .ghint{display:block; color:var(--muted); font-size:13px; line-height:1.45; margin-top:1px}
+  .gradeopt .gdot{flex:none; width:27px; height:27px; border-radius:50%; color:#fff; font-size:13.5px; font-weight:800; display:flex; align-items:center; justify-content:center}
+  .gradeopt b{display:block; font-size:16px}
+  .gradeopt .ghint{display:block; color:#5B6B82; font-size:13px; line-height:1.45; margin-top:1px}
 </style>
 </head>
 <body>
@@ -346,7 +347,7 @@
 <div class="overlay" id="gradeOverlay">
   <div class="modal grademodal" role="dialog" aria-modal="true">
     <button class="xbtn" id="gradeClose" type="button" aria-label="Đóng">✕</button>
-    <h3 style="margin:0 30px 2px 0; font-size:18px">Bạn nhớ bài này ở mức nào?</h3>
+    <h3 style="margin:0 30px 2px 0; font-size:19.5px">Bạn nhớ bài này ở mức nào?</h3>
     <p id="gradeTopic" style="margin:0; color:var(--muted); font-size:13.5px; font-weight:600"></p>
     <p style="margin:8px 0 0; color:var(--muted); font-size:13px; line-height:1.5">Chấm theo cảm giác ngay khi vừa cố nhớ, trước khi mở đáp án. Web tính lịch ôn FSRS và ghi vào Sheet y hệt như khi bạn tick trong Sheet.</p>
     <div class="grade-list" id="gradeList"></div>
@@ -785,10 +786,10 @@ function fsrsReview(w, state, rating, elapsedDays) {
 }
 
 const GRADE_LIST = [
-  { label: "Rất khó", rating: 1, color: "#DC2626", hint: "Quên hẳn hoặc trả lời sai; phải xem lại đáp án mới nhớ ra." },
-  { label: "Khó", rating: 2, color: "#D97706", hint: "Nhớ được ý chính nhưng phải gắng sức, ngập ngừng lâu, hoặc thiếu mất ý quan trọng." },
-  { label: "Bình thường", rating: 3, color: "#2563EB", hint: "Nhớ đúng và đủ ý chính, dù hơi chậm một chút." },
-  { label: "Dễ", rating: 4, color: "#15803D", hint: "Nhớ ngay lập tức, trả lời trơn tru, không cần nghĩ." }
+  { label: "Rất khó", rating: 1, color: "#DC2626", soft: "#FDECEC", hint: "Quên hẳn hoặc trả lời sai; phải xem lại đáp án mới nhớ ra." },
+  { label: "Khó", rating: 2, color: "#D97706", soft: "#FDF3E3", hint: "Nhớ được ý chính nhưng phải gắng sức, ngập ngừng lâu, hoặc thiếu mất ý quan trọng." },
+  { label: "Bình thường", rating: 3, color: "#2563EB", soft: "#EAF1FE", hint: "Nhớ đúng và đủ ý chính, dù hơi chậm một chút." },
+  { label: "Dễ", rating: 4, color: "#15803D", soft: "#E7F6EC", hint: "Nhớ ngay lập tức, trả lời trơn tru, không cần nghĩ." }
 ];
 function vnParts() {
   const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Saigon", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
@@ -981,7 +982,7 @@ function openGrade(L) {
   msg.textContent = "";
   document.getElementById("gradeDone").style.display = "none";
   document.getElementById("gradeList").innerHTML = GRADE_LIST.map(function (g, gi) {
-    return '<button class="gradeopt" type="button" data-gi="' + gi + '"><span class="gdot" style="background:' + g.color + '"></span><span><b>' + g.label + '</b><span class="ghint">' + g.hint + '</span></span></button>';
+    return '<button class="gradeopt" type="button" data-gi="' + gi + '" style="background:' + g.soft + '"><span class="gdot" style="background:' + g.color + '">' + g.rating + '</span><span><b style="color:' + g.color + '">' + g.label + '</b><span class="ghint">' + g.hint + '</span></span></button>';
   }).join("");
   document.querySelectorAll(".gradeopt").forEach(function (b) {
     b.addEventListener("click", function () { submitReview(gradeRow, GRADE_LIST[+b.getAttribute("data-gi")]); });
