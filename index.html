@@ -150,9 +150,17 @@
   .grouphead{cursor:pointer; user-select:none}
   .grouphead .chev{margin-left:auto; color:var(--muted); font-size:13px; font-weight:500}
   .rows.collapsed{display:none}
+  .gdetail{display:none}
   @media (min-width:1024px){
-    #todayGroups{display:grid; grid-template-columns:1fr 1fr; gap:4px 22px; align-items:start}
-    .gcol .rows{max-height:470px; overflow-y:auto; padding-right:4px}
+    .gaccord{display:none}
+    .gdetail{display:grid; grid-template-columns:295px 1fr; gap:18px; align-items:start}
+    .gside{display:flex; flex-direction:column; gap:8px}
+    .gside-item{display:flex; align-items:center; gap:10px; width:100%; text-align:left; background:#fff; border:1.5px solid var(--line); border-radius:14px; padding:11px 13px; cursor:pointer; font:inherit}
+    .gside-item.active{border-color:var(--accent); box-shadow:var(--shadow)}
+    .gside-item .gs-meta{margin-left:auto; text-align:right; color:var(--muted); font-size:12.5px; line-height:1.5}
+    .gside-item .gs-meta b{color:var(--ink); font-size:13.5px}
+    .gmain .rows{max-height:560px; overflow-y:auto; padding-right:4px; scrollbar-width:thin}
+    .rows.solo{max-height:560px; overflow-y:auto; padding-right:4px; scrollbar-width:thin}
   }
 
   /* Tab Tất cả bài học: danh sách nằm trong khung cuộn riêng, có thanh cuộn rõ ràng */
@@ -579,18 +587,42 @@ function renderToday() {
         return '<button type="button" class="tchip' + (todaySubj === g.name ? " active" : "") + '" data-g="' + esc(g.name) + '" onclick="setTodaySubj(this.getAttribute(\'data-g\'))">' + esc(g.name) + ' · ' + g.items.length + '</button>';
       }).join("");
   }
-  let shown = todaySubj ? groupList.filter(function (g) { return g.name === todaySubj; }) : groupList;
-  if (!shown.length) { todaySubj = ""; shown = groupList; }
+  if (todaySubj && !groupList.some(function (g) { return g.name === todaySubj; })) todaySubj = "";
   let idx = 0;
-  box.innerHTML = shown.map(function (g, gi) {
+  function headHTML(g, chev) {
     const s = subjStyle(g.name);
     const nOver = g.items.filter(function (L) { return overdueDays(L) > 0; }).length;
-    const open = todaySubj ? true : (closedGroups[g.name] != null ? !closedGroups[g.name] : gi === 0);
-    const head = '<div class="grouphead" data-g="' + esc(g.name) + '" onclick="toggleGroup(this.getAttribute(\'data-g\'))"><span class="subj" style="background:' + s.bg + ';color:' + s.fg + ';font-size:14px;padding:5px 14px">' + esc(g.name) + '</span>' +
-      '<span class="gcount">' + g.items.length + ' bài · ' + nOver + ' trễ hạn</span><span class="chev">' + (open ? "▾ Thu gọn" : "▸ Mở") + '</span></div>';
-    const rows = '<div class="rows' + (open ? "" : " collapsed") + '">' + g.items.map(function (L) { return rowHTML(L, idx++); }).join("") + '</div>';
-    return '<div class="gcol">' + head + rows + '</div>';
-  }).join("");
+    return '<span class="subj" style="background:' + s.bg + ';color:' + s.fg + ';font-size:14px;padding:5px 14px">' + esc(g.name) + '</span>' +
+      '<span class="gcount">' + g.items.length + ' bài · ' + nOver + ' trễ hạn</span>' + (chev || "");
+  }
+  if (todaySubj) {
+    /* Đã chọn 1 môn: hiện riêng môn đó, khung cuộn riêng trên máy tính */
+    const g = groupList.find(function (x) { return x.name === todaySubj; });
+    box.innerHTML = '<div class="gcol"><div class="grouphead">' + headHTML(g, "") + '</div>' +
+      '<div class="rows solo">' + g.items.map(function (L) { return rowHTML(L, idx++); }).join("") + '</div></div>';
+  } else {
+    /* Điện thoại: các nhóm xếp dọc, gập/mở được */
+    const accord = '<div class="gaccord">' + groupList.map(function (g, gi) {
+      const open = closedGroups[g.name] != null ? !closedGroups[g.name] : gi === 0;
+      const head = '<div class="grouphead" data-g="' + esc(g.name) + '" onclick="toggleGroup(this.getAttribute(\'data-g\'))">' + headHTML(g, '<span class="chev">' + (open ? "▾ Thu gọn" : "▸ Mở") + '</span>') + '</div>';
+      const rows = '<div class="rows' + (open ? "" : " collapsed") + '">' + g.items.map(function (L) { return rowHTML(L, idx++); }).join("") + '</div>';
+      return '<div class="gcol">' + head + rows + '</div>';
+    }).join("") + '</div>';
+    /* Máy tính: cột trái là danh mục môn, cột phải là bài của môn gấp nhất */
+    const first = groupList[0];
+    const side = '<div class="gside">' + groupList.map(function (g) {
+      const s2 = subjStyle(g.name);
+      const worst = Math.max.apply(null, g.items.map(overdueDays));
+      const lowR = Math.min.apply(null, g.items.map(function (L) { const r = recallNum(L); return r == null ? 999 : r; }));
+      const nO = g.items.filter(function (L) { return overdueDays(L) > 0; }).length;
+      return '<button type="button" class="gside-item' + (g === first ? " active" : "") + '" data-g="' + esc(g.name) + '" onclick="setTodaySubj(this.getAttribute(\'data-g\'))">' +
+        '<span class="subj" style="background:' + s2.bg + ';color:' + s2.fg + '">' + esc(g.name) + '</span>' +
+        '<span class="gs-meta"><b>' + g.items.length + ' bài</b> · ' + nO + ' trễ hạn<br>Trễ nhất ' + worst + ' ngày · Nhớ thấp nhất ' + (lowR === 999 ? "—" : lowR + "%") + '</span></button>';
+    }).join("") + '</div>';
+    const detail = '<div class="gmain"><div class="grouphead">' + headHTML(first, "") + '</div>' +
+      '<div class="rows">' + first.items.map(function (L) { return rowHTML(L, idx++); }).join("") + '</div></div>';
+    box.innerHTML = accord + '<div class="gdetail">' + side + detail + '</div>';
+  }
 }
 
 function renderAll() {
