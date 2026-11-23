@@ -194,6 +194,17 @@
   .gradebtn:hover{border-color:var(--accent)}
   .gradebtn:disabled{opacity:.55; cursor:default}
   .review-msg{margin-top:10px; font-size:14px; line-height:1.5}
+
+  /* Bảng chấm mức nhớ (hiện riêng khi bấm Đã ôn) */
+  #gradeOverlay{z-index:70}
+  .grademodal{max-width:480px}
+  .grade-list{display:flex; flex-direction:column; gap:9px; margin-top:14px}
+  .gradeopt{display:flex; gap:12px; align-items:flex-start; width:100%; text-align:left; border:1.5px solid var(--line); background:#fff; border-radius:14px; padding:12px 14px; cursor:pointer; font:inherit; transition:border-color .15s ease, background .15s ease}
+  .gradeopt:hover{border-color:var(--accent)}
+  .gradeopt:disabled{opacity:.55; cursor:default}
+  .gradeopt .gdot{flex:none; width:12px; height:12px; border-radius:50%; margin-top:5px}
+  .gradeopt b{display:block; font-size:15.5px}
+  .gradeopt .ghint{display:block; color:var(--muted); font-size:13px; line-height:1.45; margin-top:1px}
 </style>
 </head>
 <body>
@@ -328,6 +339,19 @@
   <div class="modal modalwrap" role="dialog" aria-modal="true">
     <button class="xbtn" id="detailClose" type="button" aria-label="Đóng">✕</button>
     <div id="detailBody"></div>
+  </div>
+</div>
+
+<!-- ===== BẢNG CHẤM MỨC NHỚ ===== -->
+<div class="overlay" id="gradeOverlay">
+  <div class="modal grademodal" role="dialog" aria-modal="true">
+    <button class="xbtn" id="gradeClose" type="button" aria-label="Đóng">✕</button>
+    <h3 style="margin:0 30px 2px 0; font-size:18px">Bạn nhớ bài này ở mức nào?</h3>
+    <p id="gradeTopic" style="margin:0; color:var(--muted); font-size:13.5px; font-weight:600"></p>
+    <p style="margin:8px 0 0; color:var(--muted); font-size:13px; line-height:1.5">Chấm theo cảm giác ngay khi vừa cố nhớ, trước khi mở đáp án. Web tính lịch ôn FSRS và ghi vào Sheet y hệt như khi bạn tick trong Sheet.</p>
+    <div class="grade-list" id="gradeList"></div>
+    <div class="review-msg" id="reviewMsg"></div>
+    <button class="btn primary" id="gradeDone" type="button" style="width:100%;justify-content:center;display:none;margin-top:10px">Xong</button>
   </div>
 </div>
 
@@ -761,10 +785,10 @@ function fsrsReview(w, state, rating, elapsedDays) {
 }
 
 const GRADE_LIST = [
-  { label: "Rất khó", rating: 1, hint: "Quên hẳn hoặc trả lời sai; phải xem lại đáp án mới nhớ ra." },
-  { label: "Khó", rating: 2, hint: "Nhớ được ý chính nhưng phải gắng sức, ngập ngừng lâu, hoặc thiếu mất ý quan trọng." },
-  { label: "Bình thường", rating: 3, hint: "Nhớ đúng và đủ ý chính, dù hơi chậm một chút." },
-  { label: "Dễ", rating: 4, hint: "Nhớ ngay lập tức, trả lời trơn tru, không cần nghĩ." }
+  { label: "Rất khó", rating: 1, color: "#DC2626", hint: "Quên hẳn hoặc trả lời sai; phải xem lại đáp án mới nhớ ra." },
+  { label: "Khó", rating: 2, color: "#D97706", hint: "Nhớ được ý chính nhưng phải gắng sức, ngập ngừng lâu, hoặc thiếu mất ý quan trọng." },
+  { label: "Bình thường", rating: 3, color: "#2563EB", hint: "Nhớ đúng và đủ ý chính, dù hơi chậm một chút." },
+  { label: "Dễ", rating: 4, color: "#15803D", hint: "Nhớ ngay lập tức, trả lời trơn tru, không cần nghĩ." }
 ];
 function vnParts() {
   const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Saigon", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
@@ -786,7 +810,7 @@ async function sheetsGetRaw(token, range) {
 /* Ghi nhận 1 lần ôn: tính FSRS y hệt script trong Sheet rồi ghi C/E/F/M/N/R */
 async function submitReview(row, grade) {
   const msg = document.getElementById("reviewMsg");
-  const btns = document.querySelectorAll(".gradebtn");
+  const btns = document.querySelectorAll(".gradeopt");
   btns.forEach(function (b) { b.disabled = true; });
   msg.style.color = "var(--muted)";
   msg.textContent = "Đang ghi vào Google Sheet…";
@@ -828,6 +852,7 @@ async function submitReview(row, grade) {
     if (!r2.ok) { const t = await r2.text(); throw new Error("HTTP " + r2.status + " " + t.slice(0, 140)); }
     msg.style.color = "var(--green)";
     msg.innerHTML = "✔ Đã ghi nhận — mức <b>" + grade.label + "</b>, Ổn định S mới " + (Math.round(res.s * 100) / 100) + ". Trang đang tải lại dữ liệu mới nhất.";
+    document.getElementById("gradeDone").style.display = "";
     showToast("Đã ghi nhận ôn bài ✔");
     refreshWithToken(tok);
   } catch (e) {
@@ -923,20 +948,8 @@ function openDetail(row) {
     '</form></div>' +
     '<div class="reviewbox">' +
       '<button class="btn primary" id="btnReviewed" type="button" style="width:100%;justify-content:center">✓ Đã ôn bài này</button>' +
-      '<div id="gradeBox" style="display:none">' +
-        '<div style="margin-top:10px;font-weight:700">Bạn thấy bài này ở mức nhớ nào?</div>' +
-        '<div style="color:var(--muted);font-size:13px;line-height:1.5;margin-top:2px">Chấm theo cảm giác ngay khi vừa cố nhớ, trước khi mở đáp án. Web tính lịch ôn FSRS và ghi vào Sheet y hệt như khi bạn tick trong Sheet.</div>' +
-        '<div class="grade-grid">' + GRADE_LIST.map(function (g, gi) { return '<button class="gradebtn" type="button" data-gi="' + gi + '"><b>' + g.label + '</b><span>' + g.hint + '</span></button>'; }).join("") + '</div>' +
-        '<div class="review-msg" id="reviewMsg"></div>' +
-      '</div>' +
     '</div>';
-  document.getElementById("btnReviewed").addEventListener("click", function () {
-    document.getElementById("gradeBox").style.display = "";
-    this.style.display = "none";
-  });
-  document.querySelectorAll(".gradebtn").forEach(function (b) {
-    b.addEventListener("click", function () { submitReview(L.row, GRADE_LIST[+b.getAttribute("data-gi")]); });
-  });
+  document.getElementById("btnReviewed").addEventListener("click", function () { openGrade(L); });
   document.getElementById("btnEdit").addEventListener("click", function () {
     document.getElementById("eTopic").value = L.topic || "";
     document.getElementById("eDate").value = dmyToIso(L.learnedDate);
@@ -960,6 +973,25 @@ function openDetail(row) {
 function closeDetail() { document.getElementById("detailOverlay").classList.remove("open"); }
 document.getElementById("detailClose").addEventListener("click", closeDetail);
 document.getElementById("detailOverlay").addEventListener("click", function (e) { if (e.target === this) closeDetail(); });
+let gradeRow = null;
+function openGrade(L) {
+  gradeRow = L.row;
+  document.getElementById("gradeTopic").textContent = L.topic;
+  const msg = document.getElementById("reviewMsg");
+  msg.textContent = "";
+  document.getElementById("gradeDone").style.display = "none";
+  document.getElementById("gradeList").innerHTML = GRADE_LIST.map(function (g, gi) {
+    return '<button class="gradeopt" type="button" data-gi="' + gi + '"><span class="gdot" style="background:' + g.color + '"></span><span><b>' + g.label + '</b><span class="ghint">' + g.hint + '</span></span></button>';
+  }).join("");
+  document.querySelectorAll(".gradeopt").forEach(function (b) {
+    b.addEventListener("click", function () { submitReview(gradeRow, GRADE_LIST[+b.getAttribute("data-gi")]); });
+  });
+  document.getElementById("gradeOverlay").classList.add("open");
+}
+function closeGrade() { document.getElementById("gradeOverlay").classList.remove("open"); }
+document.getElementById("gradeClose").addEventListener("click", closeGrade);
+document.getElementById("gradeOverlay").addEventListener("click", function (e) { if (e.target === this) closeGrade(); });
+document.getElementById("gradeDone").addEventListener("click", function () { closeGrade(); closeDetail(); });
 
 /* ===== Tabs ===== */
 function switchTab(name) {
