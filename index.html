@@ -184,6 +184,16 @@
   .rowbar i{display:block; height:100%; border-radius:99px; animation:none}
   .grow2{display:flex; flex-direction:column; gap:8px; margin-bottom:10px}
   .gmain .grouphead:first-child{margin-top:4px}
+
+  /* Ôn bài ngay trên web: nút Đã ôn + chọn mức nhớ */
+  .reviewbox{margin-top:16px; border-top:1px solid var(--line); padding-top:14px}
+  .grade-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px}
+  .gradebtn{appearance:none; border:1.5px solid var(--line); background:#fff; border-radius:13px; padding:10px 12px; text-align:left; cursor:pointer; font:inherit}
+  .gradebtn b{display:block; font-size:15px}
+  .gradebtn span{display:block; color:var(--muted); font-size:12.5px; line-height:1.45; margin-top:2px}
+  .gradebtn:hover{border-color:var(--accent)}
+  .gradebtn:disabled{opacity:.55; cursor:default}
+  .review-msg{margin-top:10px; font-size:14px; line-height:1.5}
 </style>
 </head>
 <body>
@@ -695,6 +705,138 @@ function renderAll_Tabs(animate) {
 }
 
 /* ===== Chi tiết bài ===== */
+/* ===== FSRS-6: lõi chép nguyên văn từ script trong Sheet (fsrs-gop.gs) ===== */
+function fsrsClampD(d) { return Math.min(Math.max(d, 1), 10); }
+function fsrsClampS(s) { return Math.max(s, 0.001); }
+function fsrsFactorDecay(w) {
+  const decay = -w[20];
+  const factor = Math.pow(0.9, 1 / decay) - 1;
+  return { decay: decay, factor: factor };
+}
+function fsrsRetrievability(w, stability, elapsedDays) {
+  const fd = fsrsFactorDecay(w);
+  return Math.pow(1 + fd.factor * Math.max(0, elapsedDays) / stability, fd.decay);
+}
+function fsrsFirstReview(w, rating) {
+  return {
+    s: fsrsClampS(w[rating - 1]),
+    d: fsrsClampD(w[4] - Math.exp(w[5] * (rating - 1)) + 1)
+  };
+}
+function fsrsNextDifficulty(w, d, rating) {
+  const d0Easy = w[4] - Math.exp(w[5] * 3) + 1;
+  const delta = -(w[6] * (rating - 3));
+  const arg2 = d + (10 - d) * delta / 9;
+  return fsrsClampD(w[7] * d0Easy + (1 - w[7]) * arg2);
+}
+function fsrsShortTermStability(w, s, rating) {
+  let inc = Math.exp(w[17] * (rating - 3 + w[18])) * Math.pow(s, -w[19]);
+  if (rating >= 2) inc = Math.max(inc, 1);
+  return fsrsClampS(s * inc);
+}
+function fsrsNextStability(w, d, s, r, rating) {
+  let next;
+  if (rating === 1) {
+    const longTerm = w[11] * Math.pow(d, -w[12]) * (Math.pow(s + 1, w[13]) - 1) * Math.exp((1 - r) * w[14]);
+    const shortTerm = s / Math.exp(w[17] * w[18]);
+    next = Math.min(longTerm, shortTerm);
+  } else {
+    const hard = rating === 2 ? w[15] : 1;
+    const easy = rating === 4 ? w[16] : 1;
+    next = s * (1 + Math.exp(w[8]) * (11 - d) * Math.pow(s, -w[9]) * (Math.exp((1 - r) * w[10]) - 1) * hard * easy);
+  }
+  return fsrsClampS(next);
+}
+function fsrsReview(w, state, rating, elapsedDays) {
+  if (!state) return fsrsFirstReview(w, rating);
+  const t = Math.max(0, elapsedDays);
+  let s;
+  if (t < 1) {
+    s = fsrsShortTermStability(w, state.s, rating);
+  } else {
+    const r = fsrsRetrievability(w, state.s, t);
+    s = fsrsNextStability(w, state.d, state.s, r, rating);
+  }
+  return { s: s, d: fsrsNextDifficulty(w, state.d, rating) };
+}
+
+const GRADE_LIST = [
+  { label: "Rất khó", rating: 1, hint: "Quên hẳn hoặc trả lời sai; phải xem lại đáp án mới nhớ ra." },
+  { label: "Khó", rating: 2, hint: "Nhớ được ý chính nhưng phải gắng sức, ngập ngừng lâu, hoặc thiếu mất ý quan trọng." },
+  { label: "Bình thường", rating: 3, hint: "Nhớ đúng và đủ ý chính, dù hơi chậm một chút." },
+  { label: "Dễ", rating: 4, hint: "Nhớ ngay lập tức, trả lời trơn tru, không cần nghĩ." }
+];
+function vnParts() {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Saigon", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
+  const g = {};
+  parts.forEach(function (x) { g[x.type] = x.value; });
+  return g;
+}
+function todaySerialVN() {
+  const g = vnParts();
+  return Math.round((Date.UTC(+g.year, +g.month - 1, +g.day) - Date.UTC(1899, 11, 30)) / 86400000);
+}
+function todayDMYVN() { const g = vnParts(); return g.day + "/" + g.month + "/" + g.year; }
+async function sheetsGetRaw(token, range) {
+  const r = await fetch(SHEETS_API + encodeURIComponent(range) + "?valueRenderOption=UNFORMATTED_VALUE", { headers: { Authorization: "Bearer " + token } });
+  if (!r.ok) throw new Error("HTTP " + r.status);
+  const j = await r.json();
+  return j.values || [];
+}
+/* Ghi nhận 1 lần ôn: tính FSRS y hệt script trong Sheet rồi ghi C/E/F/M/N/R */
+async function submitReview(row, grade) {
+  const msg = document.getElementById("reviewMsg");
+  const btns = document.querySelectorAll(".gradebtn");
+  btns.forEach(function (b) { b.disabled = true; });
+  msg.style.color = "var(--muted)";
+  msg.textContent = "Đang ghi vào Google Sheet…";
+  try {
+    let tok = getToken();
+    if (!tok) { try { tok = await signIn(); } catch (e) { throw new Error("Cần đăng nhập Google bằng tài khoản chủ để ghi nhận ôn bài."); } }
+    if (!tok) throw new Error("Chưa có quyền ghi vào Sheet.");
+    const hdr = { Authorization: "Bearer " + tok, "Content-Type": "application/json" };
+    const wRows = await sheetsGetRaw(tok, "Cấu hình!J6:J26");
+    const w = wRows.map(function (x) { return Number(x[0]); });
+    if (w.length !== 21 || w.some(function (x) { return isNaN(x); })) throw new Error("Không đọc được tham số FSRS ở tab Cấu hình.");
+    const rowsRaw = await sheetsGetRaw(tok, SR_TAB + "!A" + row + ":R" + row);
+    const raw = rowsRaw[0] || [];
+    const num = function (v) { return (v === "" || v == null || isNaN(Number(v))) ? null : Number(v); };
+    const sVal = num(raw[12]), dVal = num(raw[13]);
+    const today = todaySerialVN();
+    let state = null, elapsed = 0;
+    if (sVal != null && dVal != null) {
+      state = { s: sVal, d: dVal };
+      const eVal = num(raw[4]);
+      if (eVal != null) elapsed = today - eVal;
+    }
+    const res = fsrsReview(w, state, grade.rating, elapsed);
+    const count = Number(raw[5]) || 0;
+    const entry = todayDMYVN() + ": " + grade.label + " → S " + (Math.round(res.s * 100) / 100);
+    const oldHist = raw[17] == null ? "" : String(raw[17]);
+    const data = [
+      { range: SR_TAB + "!C" + row, values: [[""]] },
+      { range: SR_TAB + "!E" + row, values: [[today]] },
+      { range: SR_TAB + "!F" + row, values: [[count + 1]] },
+      { range: SR_TAB + "!M" + row, values: [[Math.round(res.s * 10000) / 10000]] },
+      { range: SR_TAB + "!N" + row, values: [[Math.round(res.d * 10000) / 10000]] },
+      { range: SR_TAB + "!R" + row, values: [[oldHist ? oldHist + "\n" + entry : entry]] }
+    ];
+    const r2 = await fetch("https://sheets.googleapis.com/v4/spreadsheets/" + SR_SHEET_ID + "/values:batchUpdate", {
+      method: "POST", headers: hdr,
+      body: JSON.stringify({ valueInputOption: "USER_ENTERED", data: data })
+    });
+    if (!r2.ok) { const t = await r2.text(); throw new Error("HTTP " + r2.status + " " + t.slice(0, 140)); }
+    msg.style.color = "var(--green)";
+    msg.innerHTML = "✔ Đã ghi nhận — mức <b>" + grade.label + "</b>, Ổn định S mới " + (Math.round(res.s * 100) / 100) + ". Trang đang tải lại dữ liệu mới nhất.";
+    showToast("Đã ghi nhận ôn bài ✔");
+    refreshWithToken(tok);
+  } catch (e) {
+    msg.style.color = "var(--red)";
+    msg.textContent = "Chưa ghi được: " + (e.message || e);
+    btns.forEach(function (b) { b.disabled = false; });
+  }
+}
+
 function openDetail(row) {
   const L = lessons.filter(function (x) { return x.row === row; })[0];
   if (!L) return;
@@ -720,7 +862,23 @@ function openDetail(row) {
     '<h3>' + esc(L.topic) + '</h3>' +
     '<dl class="kv">' + rows.map(function (r) { return '<dt>' + r[0] + '</dt><dd>' + r[1] + '</dd>'; }).join("") + '</dl>' +
     '<div style="margin-top:12px;color:var(--muted);font-size:13.5px;font-weight:600">Lịch sử ôn</div>' +
-    '<div class="hist">' + esc(L.history || "Chưa có lịch sử ôn.") + '</div>';
+    '<div class="hist">' + esc(L.history || "Chưa có lịch sử ôn.") + '</div>' +
+    '<div class="reviewbox">' +
+      '<button class="btn primary" id="btnReviewed" type="button" style="width:100%;justify-content:center">✓ Đã ôn bài này</button>' +
+      '<div id="gradeBox" style="display:none">' +
+        '<div style="margin-top:10px;font-weight:700">Bạn thấy bài này ở mức nhớ nào?</div>' +
+        '<div style="color:var(--muted);font-size:13px;line-height:1.5;margin-top:2px">Chấm theo cảm giác ngay khi vừa cố nhớ, trước khi mở đáp án. Web tính lịch ôn FSRS và ghi vào Sheet y hệt như khi bạn tick trong Sheet.</div>' +
+        '<div class="grade-grid">' + GRADE_LIST.map(function (g, gi) { return '<button class="gradebtn" type="button" data-gi="' + gi + '"><b>' + g.label + '</b><span>' + g.hint + '</span></button>'; }).join("") + '</div>' +
+        '<div class="review-msg" id="reviewMsg"></div>' +
+      '</div>' +
+    '</div>';
+  document.getElementById("btnReviewed").addEventListener("click", function () {
+    document.getElementById("gradeBox").style.display = "";
+    this.style.display = "none";
+  });
+  document.querySelectorAll(".gradebtn").forEach(function (b) {
+    b.addEventListener("click", function () { submitReview(L.row, GRADE_LIST[+b.getAttribute("data-gi")]); });
+  });
   document.getElementById("detailOverlay").classList.add("open");
 }
 function closeDetail() { document.getElementById("detailOverlay").classList.remove("open"); }
