@@ -858,13 +858,14 @@ function updateGate() {
   var g = document.getElementById("gate"); if (!g) return;
   var hasCache = false; try { hasCache = !!loadCache(); } catch (e) {}
   var ownerOk = false; try { ownerOk = localStorage.getItem("bh-owner-ok") === "1"; } catch (e) {}
-  g.style.display = (!hasCache && !ownerOk) ? "flex" : "none";
+  g.style.display = "none";
 }
 var _gb = document.getElementById("gateBtn");
 if (_gb) _gb.addEventListener("click", async function () {
   try {
     const tok = await signIn();
     updateGate();
+  if (!cache) { try { showNotice("Máy này chưa có dữ liệu — bấm nút Đăng nhập Google một lần để tải bảng học của bạn. Những lần sau mở trang là xem ngay, không hỏi lại."); } catch (e) {} }
     if (tok) { showToast("Đăng nhập xong — đang tải dữ liệu mới…"); refreshWithToken(tok); }
   } catch (e) { if (e && e.code !== "auth/popup-closed-by-user") showNotice("Đăng nhập không thành công: " + (e.message || e)); }
 });
