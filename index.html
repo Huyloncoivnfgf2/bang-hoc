@@ -837,6 +837,52 @@ async function submitReview(row, grade) {
   }
 }
 
+function dmyToIso(dmy) {
+  const p = String(dmy || "").split("/");
+  return p.length === 3 ? p[2] + "-" + p[1].padStart(2, "0") + "-" + p[0].padStart(2, "0") : "";
+}
+/* Sửa thông tin bài: chỉ ghi các ô nội dung A/B/D/J/K/L — không đụng cột công thức, S/D, lịch sử */
+async function submitEdit(row) {
+  const errBox = document.getElementById("eError");
+  function fail(m) { errBox.textContent = m; errBox.classList.add("show"); }
+  errBox.classList.remove("show");
+  const topic = document.getElementById("eTopic").value.trim();
+  if (!topic) { fail("Chưa nhập Chủ đề."); return; }
+  const subject = document.getElementById("eSubject").value;
+  const dateStr = toDMY(document.getElementById("eDate").value);
+  const notebook = document.getElementById("eNotebook").value.trim();
+  const mistakes = document.getElementById("eMistakes").value.trim();
+  const answer = document.getElementById("eAnswer").value.trim();
+  const btn = document.getElementById("eSave");
+  btn.disabled = true; btn.textContent = "Đang lưu…";
+  try {
+    let tok = getToken();
+    if (!tok) { try { tok = await signIn(); } catch (e) { throw new Error("Cần đăng nhập Google bằng tài khoản chủ để sửa bài."); } }
+    if (!tok) throw new Error("Chưa có quyền ghi vào Sheet.");
+    const hdr = { Authorization: "Bearer " + tok, "Content-Type": "application/json" };
+    const data = [
+      { range: SR_TAB + "!A" + row, values: [[topic]] },
+      { range: SR_TAB + "!B" + row, values: [[subject]] },
+      { range: SR_TAB + "!J" + row, values: [[notebook]] },
+      { range: SR_TAB + "!K" + row, values: [[mistakes]] },
+      { range: SR_TAB + "!L" + row, values: [[answer]] }
+    ];
+    if (dateStr) data.push({ range: SR_TAB + "!D" + row, values: [[dateStr]] });
+    const r2 = await fetch("https://sheets.googleapis.com/v4/spreadsheets/" + SR_SHEET_ID + "/values:batchUpdate", {
+      method: "POST", headers: hdr,
+      body: JSON.stringify({ valueInputOption: "USER_ENTERED", data: data })
+    });
+    if (!r2.ok) { const t = await r2.text(); throw new Error("HTTP " + r2.status + " " + t.slice(0, 140)); }
+    closeDetail();
+    showToast("Đã lưu thay đổi ✔");
+    refreshWithToken(tok);
+  } catch (e) {
+    fail("Chưa lưu được: " + (e.message || e));
+  } finally {
+    btn.disabled = false; btn.textContent = "Lưu thay đổi";
+  }
+}
+
 function openDetail(row) {
   const L = lessons.filter(function (x) { return x.row === row; })[0];
   if (!L) return;
@@ -860,9 +906,21 @@ function openDetail(row) {
   ];
   document.getElementById("detailBody").innerHTML =
     '<h3>' + esc(L.topic) + '</h3>' +
-    '<dl class="kv">' + rows.map(function (r) { return '<dt>' + r[0] + '</dt><dd>' + r[1] + '</dd>'; }).join("") + '</dl>' +
+    '<div id="viewBox"><dl class="kv">' + rows.map(function (r) { return '<dt>' + r[0] + '</dt><dd>' + r[1] + '</dd>'; }).join("") + '</dl>' +
     '<div style="margin-top:12px;color:var(--muted);font-size:13.5px;font-weight:600">Lịch sử ôn</div>' +
-    '<div class="hist">' + esc(L.history || "Chưa có lịch sử ôn.") + '</div>' +
+    '<div class="hist">' + esc(L.history || "Chưa có lịch sử ôn.") + '</div></div>' +
+    '<button class="btn" id="btnEdit" type="button" style="width:100%;justify-content:center;margin-top:14px">✏️ Sửa thông tin bài</button>' +
+    '<div id="editBox" style="display:none;margin-top:14px"><form class="addform" id="editForm">' +
+      '<label>Chủ đề *<input id="eTopic" type="text" required></label>' +
+      '<label>Môn<select id="eSubject">' + (SUBJECTS.indexOf(L.subject) >= 0 ? SUBJECTS : SUBJECTS.concat([L.subject])).map(function (x) { return '<option' + (x === L.subject ? ' selected' : '') + '>' + esc(x) + '</option>'; }).join("") + '</select></label>' +
+      '<label>Ngày học<input id="eDate" type="date"></label>' +
+      '<label>Nơi viết / Câu hỏi gợi nhớ<input id="eNotebook" type="text"></label>' +
+      '<label>Ghi chú lỗi sai<textarea id="eMistakes" rows="2"></textarea></label>' +
+      '<label>Đáp án / Gợi ý<textarea id="eAnswer" rows="3"></textarea></label>' +
+      '<div class="formerr" id="eError"></div>' +
+      '<div style="display:flex;gap:8px"><button class="btn" id="eCancel" type="button" style="flex:1;justify-content:center">Huỷ</button>' +
+      '<button class="btn primary" id="eSave" type="submit" style="flex:2;justify-content:center">Lưu thay đổi</button></div>' +
+    '</form></div>' +
     '<div class="reviewbox">' +
       '<button class="btn primary" id="btnReviewed" type="button" style="width:100%;justify-content:center">✓ Đã ôn bài này</button>' +
       '<div id="gradeBox" style="display:none">' +
@@ -879,6 +937,24 @@ function openDetail(row) {
   document.querySelectorAll(".gradebtn").forEach(function (b) {
     b.addEventListener("click", function () { submitReview(L.row, GRADE_LIST[+b.getAttribute("data-gi")]); });
   });
+  document.getElementById("btnEdit").addEventListener("click", function () {
+    document.getElementById("eTopic").value = L.topic || "";
+    document.getElementById("eDate").value = dmyToIso(L.learnedDate);
+    document.getElementById("eNotebook").value = L.notebook || "";
+    document.getElementById("eMistakes").value = L.mistakes || "";
+    document.getElementById("eAnswer").value = L.answer || "";
+    document.getElementById("viewBox").style.display = "none";
+    document.querySelector(".reviewbox").style.display = "none";
+    this.style.display = "none";
+    document.getElementById("editBox").style.display = "";
+  });
+  document.getElementById("eCancel").addEventListener("click", function () {
+    document.getElementById("editBox").style.display = "none";
+    document.getElementById("viewBox").style.display = "";
+    document.querySelector(".reviewbox").style.display = "";
+    document.getElementById("btnEdit").style.display = "";
+  });
+  document.getElementById("editForm").addEventListener("submit", function (ev) { ev.preventDefault(); submitEdit(L.row); });
   document.getElementById("detailOverlay").classList.add("open");
 }
 function closeDetail() { document.getElementById("detailOverlay").classList.remove("open"); }
