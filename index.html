@@ -206,6 +206,14 @@
   .gradeopt .gdot{flex:none; width:27px; height:27px; border-radius:50%; color:#fff; font-size:13.5px; font-weight:800; display:flex; align-items:center; justify-content:center}
   .gradeopt b{display:block; font-size:16px}
   .gradeopt .ghint{display:block; color:#5B6B82; font-size:13px; line-height:1.45; margin-top:1px}
+
+  /* Ghi chú */
+  .notetext{width:100%; font:inherit; padding:11px 13px; border-radius:13px; border:1px solid var(--line); background:#fff; outline:none; resize:vertical; line-height:1.55}
+  .notetext:focus{border-color:var(--accent)}
+  .note-card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px 14px; box-shadow:var(--shadow)}
+  .note-time{color:var(--muted); font-size:12.5px; font-weight:600}
+  .note-text{white-space:pre-wrap; line-height:1.55; margin-top:3px; word-break:break-word}
+  .note-actions{display:flex; gap:8px; margin-top:9px}
 </style>
 </head>
 <body>
@@ -262,6 +270,10 @@
     <button class="tabbtn" data-tab="stats" type="button">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3v18h18"/><path d="M8 17v-6M13 17V7M18 17v-9"/></svg>
       Thống kê
+    </button>
+    <button class="tabbtn" data-tab="notes" type="button">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+      Ghi chú
     </button>
   </nav>
 
@@ -332,6 +344,20 @@
       <h3>Theo trạng thái</h3>
       <div id="distStatus"></div>
     </div>
+  </section>
+
+  <!-- ===== TAB GHI CHÚ ===== -->
+  <section class="tabpane" id="pane-notes">
+    <div class="card">
+      <h3>Ghi chú nhanh</h3>
+      <p style="color:var(--muted);font-size:13.5px;margin:0 0 10px">Viết gì cũng được — ghi chú lưu vào tab <b>Ghi chú</b> trong Google Sheet của bạn nên không sợ mất, mở Sheet cũng thấy.</p>
+      <form id="noteForm">
+        <textarea id="noteInput" class="notetext" rows="3" placeholder="Viết ghi chú…"></textarea>
+        <div class="formerr" id="noteError"></div>
+        <button class="btn primary" type="submit" id="noteSave" style="width:100%;justify-content:center;margin-top:8px">Lưu ghi chú</button>
+      </form>
+    </div>
+    <div id="notesList" style="display:flex;flex-direction:column;gap:10px;margin-top:14px"></div>
   </section>
 </div>
 
@@ -994,6 +1020,133 @@ document.getElementById("gradeClose").addEventListener("click", closeGrade);
 document.getElementById("gradeOverlay").addEventListener("click", function (e) { if (e.target === this) closeGrade(); });
 document.getElementById("gradeDone").addEventListener("click", function () { closeGrade(); closeDetail(); });
 
+/* ===== Ghi chú — lưu ở tab "Ghi chú" trong Sheet ===== */
+const NOTES_TAB = "Ghi chú";
+let notes = [];
+let notesLoaded = false;
+let editingNoteRow = null;
+function saveNotesCache() { try { localStorage.setItem("sb-notes-v1", JSON.stringify({ at: Date.now(), notes: notes })); } catch (e) {} }
+function loadNotesCache() {
+  try {
+    const c = JSON.parse(localStorage.getItem("sb-notes-v1") || "null");
+    if (c && c.notes) { notes = c.notes; notesLoaded = true; }
+  } catch (e) {}
+}
+function nowStampVN() {
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Saigon", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(new Date());
+  const g = {};
+  parts.forEach(function (x) { g[x.type] = x.value; });
+  return g.day + "/" + g.month + "/" + g.year + " " + g.hour + ":" + g.minute;
+}
+async function fetchNotes(token) {
+  const r = await fetch(SHEETS_API + encodeURIComponent(NOTES_TAB + "!A2:B200"), { headers: { Authorization: "Bearer " + token } });
+  if (!r.ok) throw new Error("HTTP " + r.status);
+  const j = await r.json();
+  const out = [];
+  (j.values || []).forEach(function (row, i) {
+    const text = row[1] == null ? "" : String(row[1]);
+    if (text.trim()) out.push({ row: i + 2, time: row[0] == null ? "" : String(row[0]), text: text });
+  });
+  out.reverse();
+  return out;
+}
+async function loadNotes(force) {
+  if (notesLoaded && !force) { renderNotes(); return; }
+  const tok = getToken();
+  if (!tok) { renderNotes(); return; }
+  try {
+    notes = await fetchNotes(tok);
+    notesLoaded = true;
+    saveNotesCache();
+  } catch (e) { showNotice("Không tải được ghi chú (" + (e.message || e) + ")."); }
+  renderNotes();
+}
+async function notesToken() {
+  let tok = getToken();
+  if (!tok) { try { tok = await signIn(); } catch (e) { tok = null; } }
+  return tok;
+}
+async function writeNoteCells(token, data) {
+  const r = await fetch("https://sheets.googleapis.com/v4/spreadsheets/" + SR_SHEET_ID + "/values:batchUpdate", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+    body: JSON.stringify({ valueInputOption: "USER_ENTERED", data: data })
+  });
+  if (!r.ok) { const t = await r.text(); throw new Error("HTTP " + r.status + " " + t.slice(0, 140)); }
+}
+function renderNotes() {
+  const box = document.getElementById("notesList");
+  if (!box) return;
+  if (!notes.length) {
+    box.innerHTML = getToken()
+      ? '<div class="empty">Chưa có ghi chú nào. Viết ghi chú đầu tiên ở ô phía trên nhé.</div>'
+      : '<div class="empty">Ghi chú nằm trong Google Sheet của bạn — đăng nhập Google một lần để xem và viết ghi chú.</div>';
+    return;
+  }
+  box.innerHTML = notes.map(function (n) {
+    if (editingNoteRow === n.row) {
+      return '<div class="note-card"><div class="note-time">🕘 ' + esc(n.time) + '</div>' +
+        '<textarea id="noteEditText" class="notetext" rows="3" style="margin-top:8px">' + esc(n.text) + '</textarea>' +
+        '<div class="note-actions"><button class="btn primary small" type="button" onclick="saveNoteEdit(' + n.row + ')">Lưu</button>' +
+        '<button class="btn small" type="button" onclick="cancelNoteEdit()">Huỷ</button></div></div>';
+    }
+    return '<div class="note-card"><div class="note-time">🕘 ' + esc(n.time) + '</div>' +
+      '<div class="note-text">' + esc(n.text) + '</div>' +
+      '<div class="note-actions"><button class="btn small" type="button" onclick="editNote(' + n.row + ')">✏️ Sửa</button>' +
+      '<button class="btn small" type="button" style="color:var(--red)" onclick="deleteNote(' + n.row + ')">🗑 Xoá</button></div></div>';
+  }).join("");
+}
+function editNote(row) { editingNoteRow = row; renderNotes(); }
+function cancelNoteEdit() { editingNoteRow = null; renderNotes(); }
+async function saveNoteEdit(row) {
+  const ta = document.getElementById("noteEditText");
+  const text = ta.value.trim();
+  if (!text) { alert("Ghi chú đang trống — muốn xoá thì bấm nút Xoá nhé."); return; }
+  const tok = await notesToken();
+  if (!tok) { alert("Cần đăng nhập Google bằng tài khoản chủ để sửa ghi chú."); return; }
+  try {
+    await writeNoteCells(tok, [{ range: NOTES_TAB + "!B" + row, values: [[text]] }]);
+    editingNoteRow = null;
+    showToast("Đã sửa ghi chú ✔");
+    loadNotes(true);
+  } catch (e) { alert("Chưa sửa được: " + (e.message || e)); }
+}
+async function deleteNote(row) {
+  if (!confirm("Xoá ghi chú này?")) return;
+  const tok = await notesToken();
+  if (!tok) { alert("Cần đăng nhập Google bằng tài khoản chủ để xoá ghi chú."); return; }
+  try {
+    await writeNoteCells(tok, [{ range: NOTES_TAB + "!A" + row + ":B" + row, values: [["", ""]] }]);
+    showToast("Đã xoá ghi chú");
+    loadNotes(true);
+  } catch (e) { alert("Chưa xoá được: " + (e.message || e)); }
+}
+document.getElementById("noteForm").addEventListener("submit", async function (ev) {
+  ev.preventDefault();
+  const errBox = document.getElementById("noteError");
+  errBox.classList.remove("show");
+  const input = document.getElementById("noteInput");
+  const text = input.value.trim();
+  if (!text) { errBox.textContent = "Chưa viết ghi chú."; errBox.classList.add("show"); return; }
+  const tok = await notesToken();
+  if (!tok) { errBox.textContent = "Cần đăng nhập Google bằng tài khoản chủ để lưu ghi chú."; errBox.classList.add("show"); return; }
+  const btn = document.getElementById("noteSave");
+  btn.disabled = true; btn.textContent = "Đang lưu…";
+  try {
+    const cur = await fetchNotes(tok);
+    const newRow = cur.length ? Math.max.apply(null, cur.map(function (n) { return n.row; })) + 1 : 2;
+    await writeNoteCells(tok, [{ range: NOTES_TAB + "!A" + newRow + ":B" + newRow, values: [[nowStampVN(), text]] }]);
+    input.value = "";
+    showToast("Đã lưu ghi chú ✔");
+    loadNotes(true);
+  } catch (e) {
+    errBox.textContent = "Chưa lưu được: " + (e.message || e);
+    errBox.classList.add("show");
+  } finally {
+    btn.disabled = false; btn.textContent = "Lưu ghi chú";
+  }
+});
+
 /* ===== Tabs ===== */
 function switchTab(name) {
   document.querySelectorAll(".tabbtn").forEach(function (b) {
@@ -1003,6 +1156,7 @@ function switchTab(name) {
     p.classList.toggle("active", p.id === "pane-" + name);
   });
   if (name === "stats") animateBars(document.getElementById("pane-stats"));
+  if (name === "notes") loadNotes(false);
   window.scrollTo({ top: 0, behavior: REDUCED ? "auto" : "smooth" });
 }
 document.querySelectorAll(".tabbtn").forEach(function (b) {
@@ -1117,6 +1271,7 @@ async function refreshWithToken(token) {
       saveCache(data);
       renderAll_Tabs(true);
       hideNotice();
+      loadNotes(true);
       const si = document.getElementById("syncInfo");
       si.style.display = "";
       si.textContent = "Đã đồng bộ " + new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
@@ -1243,6 +1398,8 @@ if (_gb) _gb.addEventListener("click", async function () {
 });
 
 (function init() {
+  loadNotesCache();
+  renderNotes();
   const cache = loadCache();
   lessons = cache ? cache.lessons : SNAPSHOT.slice();
   renderAll_Tabs(false);
