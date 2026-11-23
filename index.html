@@ -170,6 +170,10 @@
     #allRows::-webkit-scrollbar-thumb{background:#C4CFDE; border-radius:99px}
     #allRows::-webkit-scrollbar-track{background:transparent}
   }
+
+  /* Thanh tỉ lệ tự chạy hiệu ứng bằng CSS, không phụ thuộc JS gọi sau khi vẽ */
+  .dist-row .bar i, .recallbox .bar i{animation:barGrow .7s cubic-bezier(.22,.8,.3,1) both}
+  @keyframes barGrow{from{width:0}}
 </style>
 </head>
 <body>
@@ -483,7 +487,7 @@ function rowHTML(L, i) {
       '</span>' +
     '</span>' +
     '<span class="recallbox"><span class="pct" style="color:' + col + '">' + pct + '</span>' +
-      '<span class="bar"><i data-w="' + w + '" style="background:' + col + '"></i></span></span>' +
+      '<span class="bar"><i data-w="' + w + '" style="background:' + col + ';width:' + w + '%"></i></span></span>' +
   '</button>';
 }
 function animateBars(scope) {
@@ -498,7 +502,7 @@ function distHTML(counts, total, colorFn) {
     return '<div class="dist-row">' +
       (c.chip ? '<span class="subj" style="background:' + c.chip.bg + ';color:' + c.chip.fg + ';min-width:64px;justify-content:center">' + esc(c.label) + '</span>'
               : '<span style="min-width:64px;font-weight:600;font-size:13.5px">' + esc(c.label) + '</span>') +
-      '<span class="bar"><i data-w="' + Math.round(c.n / max * 100) + '" style="background:' + colorFn(c) + '"></i></span>' +
+      '<span class="bar"><i data-w="' + Math.round(c.n / max * 100) + '" style="background:' + colorFn(c) + ';width:' + Math.round(c.n / max * 100) + '%"></i></span>' +
       '<span class="num">' + c.n + '</span><span style="color:var(--muted);font-size:12.5px;min-width:34px">' + pct + '%</span>' +
     '</div>';
   }).join("");
