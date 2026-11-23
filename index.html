@@ -141,6 +141,19 @@
   @media (prefers-reduced-motion: reduce){
     *,*::before,*::after{animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important}
   }
+
+  /* Hàng đợi hôm nay: chip lọc môn + nhóm gập/mở + lưới 2 cột trên máy tính */
+  .tchips{display:flex; gap:8px; overflow-x:auto; padding:2px 0 4px; margin-top:14px; scrollbar-width:none}
+  .tchips::-webkit-scrollbar{display:none}
+  .tchip{flex:0 0 auto; border:1.5px solid #E3E9F2; background:#fff; border-radius:999px; padding:7px 13px; font-weight:600; font-size:13.5px; cursor:pointer; color:#33415C}
+  .tchip.active{background:#2563eb; border-color:#2563eb; color:#fff}
+  .grouphead{cursor:pointer; user-select:none}
+  .grouphead .chev{margin-left:auto; color:var(--muted); font-size:13px; font-weight:500}
+  .rows.collapsed{display:none}
+  @media (min-width:1024px){
+    #todayGroups{display:grid; grid-template-columns:1fr 1fr; gap:4px 22px; align-items:start}
+    .gcol .rows{max-height:470px; overflow-y:auto; padding-right:4px}
+  }
 </style>
 </head>
 <body>
@@ -215,6 +228,7 @@
     </div>
 
     <div id="urgentBox"></div>
+    <div id="todayChips" class="tchips"></div>
     <div id="todayGroups"></div>
 
     <div class="note">
@@ -496,6 +510,10 @@ function renderHeader(animate) {
   document.getElementById("todayCnt").textContent = today.length;
 }
 
+let todaySubj = "";
+const closedGroups = {};
+function setTodaySubj(n) { todaySubj = n || ""; renderToday(); }
+function toggleGroup(n) { closedGroups[n] = !closedGroups[n]; renderToday(); }
 function renderToday() {
   /* Khối tóm tắt lên đầu */
   const total = lessons.length;
@@ -544,15 +562,26 @@ function renderToday() {
   }).sort(function (a, b) { return b.maxOver - a.maxOver; });
 
   const box = document.getElementById("todayGroups");
-  if (!groupList.length) { box.innerHTML = ""; return; }
+  const chipsBox = document.getElementById("todayChips");
+  if (!groupList.length) { box.innerHTML = ""; if (chipsBox) chipsBox.innerHTML = ""; return; }
+  if (chipsBox) {
+    const totalToday = groupList.reduce(function (a, g) { return a + g.items.length; }, 0);
+    chipsBox.innerHTML = '<button type="button" class="tchip' + (todaySubj === "" ? " active" : "") + '" data-g="" onclick="setTodaySubj(this.getAttribute(\'data-g\'))">Tất cả · ' + totalToday + '</button>' +
+      groupList.map(function (g) {
+        return '<button type="button" class="tchip' + (todaySubj === g.name ? " active" : "") + '" data-g="' + esc(g.name) + '" onclick="setTodaySubj(this.getAttribute(\'data-g\'))">' + esc(g.name) + ' · ' + g.items.length + '</button>';
+      }).join("");
+  }
+  let shown = todaySubj ? groupList.filter(function (g) { return g.name === todaySubj; }) : groupList;
+  if (!shown.length) { todaySubj = ""; shown = groupList; }
   let idx = 0;
-  box.innerHTML = groupList.map(function (g) {
+  box.innerHTML = shown.map(function (g, gi) {
     const s = subjStyle(g.name);
     const nOver = g.items.filter(function (L) { return overdueDays(L) > 0; }).length;
-    const head = '<div class="grouphead"><span class="subj" style="background:' + s.bg + ';color:' + s.fg + ';font-size:14px;padding:5px 14px">' + esc(g.name) + '</span>' +
-      '<span class="gcount">' + g.items.length + ' bài · ' + nOver + ' trễ hạn</span></div>';
-    const rows = '<div class="rows">' + g.items.map(function (L) { return rowHTML(L, idx++); }).join("") + '</div>';
-    return head + rows;
+    const open = todaySubj ? true : (closedGroups[g.name] != null ? !closedGroups[g.name] : gi === 0);
+    const head = '<div class="grouphead" data-g="' + esc(g.name) + '" onclick="toggleGroup(this.getAttribute(\'data-g\'))"><span class="subj" style="background:' + s.bg + ';color:' + s.fg + ';font-size:14px;padding:5px 14px">' + esc(g.name) + '</span>' +
+      '<span class="gcount">' + g.items.length + ' bài · ' + nOver + ' trễ hạn</span><span class="chev">' + (open ? "▾ Thu gọn" : "▸ Mở") + '</span></div>';
+    const rows = '<div class="rows' + (open ? "" : " collapsed") + '">' + g.items.map(function (L) { return rowHTML(L, idx++); }).join("") + '</div>';
+    return '<div class="gcol">' + head + rows + '</div>';
   }).join("");
 }
 
