@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <style>
@@ -860,7 +861,7 @@ async function submitReview(row, grade) {
   msg.style.color = "var(--muted)";
   msg.textContent = "Đang ghi vào Google Sheet…";
   try {
-    let tok = getToken();
+    let tok = await tokenOrSilent();
     if (!tok) { try { tok = await signIn(); } catch (e) { throw new Error("Cần đăng nhập Google bằng tài khoản chủ để ghi nhận ôn bài."); } }
     if (!tok) throw new Error("Chưa có quyền ghi vào Sheet.");
     const hdr = { Authorization: "Bearer " + tok, "Content-Type": "application/json" };
@@ -926,7 +927,7 @@ async function submitEdit(row) {
   const btn = document.getElementById("eSave");
   btn.disabled = true; btn.textContent = "Đang lưu…";
   try {
-    let tok = getToken();
+    let tok = await tokenOrSilent();
     if (!tok) { try { tok = await signIn(); } catch (e) { throw new Error("Cần đăng nhập Google bằng tài khoản chủ để sửa bài."); } }
     if (!tok) throw new Error("Chưa có quyền ghi vào Sheet.");
     const hdr = { Authorization: "Bearer " + tok, "Content-Type": "application/json" };
@@ -1080,7 +1081,7 @@ async function loadNotes(force) {
   renderNotes();
 }
 async function notesToken() {
-  let tok = getToken();
+  let tok = await tokenOrSilent();
   if (!tok) { try { tok = await signIn(); } catch (e) { tok = null; } }
   return tok;
 }
@@ -1335,6 +1336,36 @@ async function signIn() {
   hideNotice();
   return tok;
 }
+
+/* Lấy token mới NGẦM khi token cũ hết hạn — chỉ gọi từ thao tác bấm của người dùng.
+   Google còn nhớ phiên + quyền đã cấp thì trả token ngay, không hiện cửa sổ nào.
+   Không lấy được thì trả null, nơi gọi lùi về đăng nhập thường như cũ. */
+const GIS_CLIENT_ID = "1053830682519-qghvj4nia8g2j49pb10vtuh567mk74bd.apps.googleusercontent.com";
+function gisSilentToken() {
+  return new Promise(function (resolve) {
+    let done = false;
+    function finish(v) { if (!done) { done = true; resolve(v); } }
+    try {
+      if (!window.google || !google.accounts || !google.accounts.oauth2) { finish(null); return; }
+      const client = google.accounts.oauth2.initTokenClient({
+        client_id: GIS_CLIENT_ID,
+        scope: "https://www.googleapis.com/auth/spreadsheets",
+        callback: function (resp) {
+          if (resp && resp.access_token) { saveToken(resp.access_token); finish(resp.access_token); }
+          else finish(null);
+        },
+        error_callback: function () { finish(null); }
+      });
+      setTimeout(function () { finish(null); }, 7000);
+      client.requestAccessToken({ prompt: "" });
+    } catch (e) { finish(null); }
+  });
+}
+async function tokenOrSilent() {
+  let tok = getToken();
+  if (!tok) tok = await gisSilentToken();
+  return tok;
+}
 document.getElementById("btnAuth").addEventListener("click", async function () {
   const user = fbReady && firebase.auth().currentUser;
   if (user && (user.email || "").toLowerCase() === OWNER_EMAIL_SR && getToken()) {
@@ -1393,14 +1424,14 @@ async function refreshWithToken(token) {
   }
 }
 async function loadFromSheet() {
-  let tok = getToken();
+  let tok = await tokenOrSilent();
   if (!tok) {
     try { tok = await signIn(); } catch (e) { return; }
   }
   if (tok) { showToast("Đang đọc lại Google Sheet…"); refreshWithToken(tok); }
 }
 document.getElementById("btnRefresh").addEventListener("click", async function () {
-  let tok = getToken();
+  let tok = await tokenOrSilent();
   if (!tok) {
     try { tok = await signIn(); } catch (e) { return; }
   }
@@ -1441,7 +1472,7 @@ document.getElementById("addForm").addEventListener("submit", async function (ev
   const mistakes = document.getElementById("fMistakes").value.trim();
   const answer = document.getElementById("fAnswer").value.trim();
 
-  let tok = getToken();
+  let tok = await tokenOrSilent();
   if (!tok) {
     try { tok = await signIn(); } catch (e) { fail("Cần đăng nhập Google bằng tài khoản chủ trước khi thêm bài."); return; }
   }
