@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bảng học Spaced Repetition</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<style>
+  :root{
+    --bg:#F6F8FC; --card:#FFFFFF; --ink:#1A2332; --muted:#5B6B82;
+    --accent:#2563EB; --accent-soft:#EAF1FE; --line:#E3E9F2;
+    --red:#DC2626; --red-soft:#FDECEC; --orange:#D97706; --orange-soft:#FDF3E3;
+    --green:#15803D; --green-soft:#E7F6EC; --gray-soft:#EEF2F7;
+    --shadow:0 1px 3px rgba(26,35,50,.06),0 8px 24px rgba(26,35,50,.06);
+    --radius:18px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{margin:0; padding:0}
+  body{font-family:"Be Vietnam Pro",system-ui,sans-serif; background:var(--bg); color:var(--ink); font-size:15px; line-height:1.5}
+  .wrap{max-width:1080px; margin:0 auto; padding:16px 16px 56px}
+
+  /* ===== Header ===== */
+  header.top{display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px; padding:6px 0 12px}
+  .title{display:flex; align-items:center; gap:9px; font-size:20px; font-weight:800; letter-spacing:-.01em; margin-right:auto}
+  .title svg{flex:none}
+  .hbtns{display:flex; gap:8px; flex-wrap:wrap}
+  .btn{appearance:none; border:1px solid var(--line); background:var(--card); color:var(--ink);
+    font:inherit; font-weight:600; font-size:14px; padding:9px 16px; border-radius:999px; cursor:pointer;
+    box-shadow:var(--shadow); display:inline-flex; align-items:center; gap:7px; transition:transform .15s ease, box-shadow .15s ease}
+  .btn:hover{transform:translateY(-1px)}
+  .btn:active{transform:translateY(0)}
+  .btn.primary{background:var(--accent); border-color:var(--accent); color:#fff}
+  .btn.small{padding:7px 13px; font-size:13px}
+  .chips{display:flex; gap:8px; flex-wrap:wrap; width:100%}
+  .chipstat{display:inline-flex; align-items:center; gap:7px; background:var(--card); border:1px solid var(--line);
+    border-radius:999px; padding:6px 13px; font-size:13.5px; color:var(--muted); box-shadow:var(--shadow); white-space:nowrap}
+  .chipstat b{font-size:16px; color:var(--ink); font-weight:800}
+  .chipstat .n-blue{color:var(--accent)} .chipstat .n-orange{color:var(--orange)} .chipstat .n-red{color:var(--red)}
+  #notice{display:none; background:#FFF7E6; border:1px solid #F3DFAE; color:#7A5410; border-radius:12px;
+    padding:9px 13px; font-size:13.5px; margin:2px 0 10px}
+  #notice.show{display:block}
+
+  /* ===== Tab bar ===== */
+  .tabbar{position:sticky; top:10px; z-index:30; background:#E8EDF5; border-radius:999px; padding:5px;
+    display:flex; gap:4px; box-shadow:var(--shadow); margin:4px 0 16px}
+  .tabbtn{flex:1; appearance:none; border:0; background:transparent; font:inherit; font-weight:600; font-size:14.5px;
+    color:var(--muted); padding:9px 6px; border-radius:999px; cursor:pointer; display:inline-flex; align-items:center;
+    justify-content:center; gap:7px; transition:all .25s ease; white-space:nowrap}
+  .tabbtn .cnt{background:var(--red); color:#fff; font-size:11.5px; font-weight:700; border-radius:999px; padding:1px 7px}
+  .tabbtn.active{background:#fff; color:var(--accent); box-shadow:0 2px 8px rgba(26,35,50,.13)}
+  section.tabpane{display:none}
+  section.tabpane.active{display:block; animation:paneIn .3s ease both}
+  @keyframes paneIn{from{opacity:0; transform:translateY(6px)} to{opacity:1; transform:none}}
+
+  /* ===== Cards & summary blocks ===== */
+  .card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px}
+  .card h3{margin:0 0 12px; font-size:16px; font-weight:700}
+  .summary-grid{display:grid; grid-template-columns:1fr; gap:12px; margin-bottom:14px}
+  @media(min-width:760px){ .summary-grid{grid-template-columns:1fr 1fr} }
+  .dist-row{display:flex; align-items:center; gap:10px; margin:7px 0}
+  .dist-row .bar{flex:1; height:9px; background:var(--gray-soft); border-radius:99px; overflow:hidden}
+  .dist-row .bar i{display:block; height:100%; border-radius:99px; width:0; transition:width .8s cubic-bezier(.22,.8,.3,1)}
+  .dist-row .num{font-weight:700; min-width:26px; text-align:right}
+  .sumline{display:flex; justify-content:space-between; align-items:baseline; padding:5px 0; color:var(--muted)}
+  .sumline b{font-size:15px}
+  .linklike{color:var(--accent); font-weight:600; cursor:pointer; background:none; border:0; font:inherit; padding:6px 0 0}
+
+  /* ===== Rows ===== */
+  .grouphead{display:flex; align-items:center; gap:9px; margin:18px 2px 8px; font-weight:700}
+  .grouphead .gcount{color:var(--muted); font-weight:500; font-size:13.5px}
+  .subj{display:inline-flex; align-items:center; font-weight:700; font-size:13px; padding:3px 11px; border-radius:8px; white-space:nowrap}
+  .rows{display:flex; flex-direction:column; gap:8px}
+  .row{display:flex; align-items:center; gap:12px; width:100%; text-align:left; background:var(--card);
+    border:1px solid var(--line); border-radius:14px; padding:11px 14px; cursor:pointer; font:inherit; color:inherit;
+    box-shadow:0 1px 2px rgba(26,35,50,.05); transition:transform .15s ease, box-shadow .15s ease}
+  .row:hover{transform:translateY(-1px); box-shadow:var(--shadow)}
+  .row-main{flex:1; min-width:0}
+  .row-topic{display:block; font-weight:600; font-size:15px; line-height:1.35;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+  .row-sub{display:flex; align-items:center; gap:8px; margin-top:5px; flex-wrap:wrap}
+  .badge{font-size:12px; font-weight:600; padding:2px 9px; border-radius:999px; white-space:nowrap}
+  .badge-over{background:var(--red-soft); color:var(--red)}
+  .badge-today{background:var(--orange-soft); color:var(--orange)}
+  .badge-wait{background:var(--gray-soft); color:var(--muted)}
+  .duetxt{font-size:13px; color:var(--muted); white-space:nowrap}
+  .recallbox{flex:none; width:86px; text-align:right}
+  .recallbox .pct{font-weight:800; font-size:15px}
+  .recallbox .bar{height:6px; background:var(--gray-soft); border-radius:99px; overflow:hidden; margin-top:4px}
+  .recallbox .bar i{display:block; height:100%; border-radius:99px; width:0; transition:width .8s cubic-bezier(.22,.8,.3,1)}
+  .urgent{border:1.5px solid #F5C6C6; background:linear-gradient(180deg,#FFF7F7,#fff)}
+  .urgent .utag{display:inline-flex; align-items:center; gap:6px; color:var(--red); font-weight:800; font-size:13px; letter-spacing:.02em; margin-bottom:6px}
+  .fade-up{animation:fadeUp .45s ease both; animation-delay:calc(var(--i,0)*35ms)}
+  @keyframes fadeUp{from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:none}}
+  .empty{color:var(--muted); text-align:center; padding:26px 10px}
+
+  /* ===== All tab toolbar ===== */
+  .toolbar{position:sticky; top:66px; z-index:20; background:var(--bg); padding:8px 0 10px}
+  .search{width:100%; font:inherit; padding:11px 15px; border-radius:13px; border:1px solid var(--line); background:#fff; box-shadow:var(--shadow); outline:none}
+  .search:focus{border-color:var(--accent)}
+  .filters{display:flex; gap:7px; flex-wrap:wrap; margin-top:9px; align-items:center}
+  .fchip{appearance:none; border:1px solid var(--line); background:#fff; font:inherit; font-size:13px; font-weight:600;
+    padding:6px 12px; border-radius:999px; cursor:pointer; color:var(--muted)}
+  .fchip.active{background:var(--accent); border-color:var(--accent); color:#fff}
+  .filters select{font:inherit; font-size:13.5px; padding:7px 10px; border-radius:10px; border:1px solid var(--line); background:#fff; color:var(--ink)}
+  .addbtn{margin-left:auto}
+
+  /* ===== Note & footer ===== */
+  .note{margin-top:20px; background:var(--accent-soft); border:1px solid #CFE0FB; border-radius:var(--radius); padding:15px 16px}
+  .note h4{margin:0 0 6px; font-size:15px}
+  .note p{margin:0 0 10px; color:#33507E; font-size:14px}
+
+  /* ===== Modal ===== */
+  .overlay{position:fixed; inset:0; background:rgba(20,28,45,.45); z-index:60; display:none; align-items:flex-end; justify-content:center; padding:0}
+  @media(min-width:700px){ .overlay{align-items:center; padding:20px} }
+  .overlay.open{display:flex}
+  .modal{background:#fff; width:100%; max-width:620px; max-height:88vh; overflow:auto; border-radius:22px 22px 0 0; padding:20px;
+    animation:modalIn .28s cubic-bezier(.22,.9,.3,1.2) both}
+  @media(min-width:700px){ .modal{border-radius:22px} }
+  @keyframes modalIn{from{opacity:0; transform:scale(.94) translateY(14px)} to{opacity:1; transform:none}}
+  .modal h3{margin:0 30px 4px 0; font-size:18px; line-height:1.35}
+  .xbtn{position:absolute; top:14px; right:14px; width:34px; height:34px; border-radius:50%; border:1px solid var(--line);
+    background:#fff; font-size:16px; cursor:pointer; color:var(--muted)}
+  .modalwrap{position:relative}
+  .kv{display:grid; grid-template-columns:128px 1fr; gap:6px 12px; margin-top:14px; font-size:14px}
+  .kv dt{color:var(--muted)} .kv dd{margin:0; font-weight:500; white-space:pre-wrap; word-break:break-word}
+  .hist{background:var(--gray-soft); border-radius:12px; padding:10px 12px; margin-top:4px; white-space:pre-wrap; font-size:13.5px}
+  form.addform{display:flex; flex-direction:column; gap:11px; margin-top:8px}
+  form.addform label{font-size:13.5px; font-weight:600; color:var(--muted); display:flex; flex-direction:column; gap:5px}
+  form.addform input, form.addform select, form.addform textarea{font:inherit; font-size:15px; color:var(--ink);
+    padding:10px 12px; border:1px solid var(--line); border-radius:11px; background:#fff; outline:none; font-weight:400}
+  form.addform input:focus, form.addform select:focus, form.addform textarea:focus{border-color:var(--accent)}
+  .formerr{display:none; background:var(--red-soft); color:var(--red); border-radius:10px; padding:9px 12px; font-size:13.5px}
+  .formerr.show{display:block}
+  #toast{position:fixed; left:50%; bottom:26px; transform:translateX(-50%) translateY(20px); background:#14351F; color:#D9F5E0;
+    padding:11px 18px; border-radius:999px; font-weight:600; font-size:14px; opacity:0; pointer-events:none; transition:all .3s ease; z-index:80; box-shadow:var(--shadow); max-width:92vw; text-align:center}
+  #toast.show{opacity:1; transform:translateX(-50%)}
+  @media (prefers-reduced-motion: reduce){
+    *,*::before,*::after{animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="title">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      Bảng học Spaced Repetition
+    </div>
+    <div class="hbtns">
+      <button class="btn" id="btnRefresh" type="button">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+        Cập nhật
+      </button>
+      <button class="btn primary" id="btnAuth" type="button">Đăng nhập Google</button>
+    </div>
+    <div class="chips">
+      <span class="chipstat"><b class="n-blue" id="statTotal">0</b> tổng bài</span>
+      <span class="chipstat"><b class="n-orange" id="statToday">0</b> cần ôn hôm nay</span>
+      <span class="chipstat"><b class="n-red" id="statOver">0</b> trễ hạn</span>
+      <span class="chipstat" id="syncInfo" style="display:none"></span>
+    </div>
+  </header>
+
+  <div id="notice" role="status"></div>
+
+  <nav class="tabbar" aria-label="Mục chính">
+    <button class="tabbtn active" data-tab="today" type="button">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+      Hôm nay <span class="cnt" id="todayCnt">0</span>
+    </button>
+    <button class="tabbtn" data-tab="all" type="button">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1" fill="currentColor"/><circle cx="3.5" cy="12" r="1" fill="currentColor"/><circle cx="3.5" cy="18" r="1" fill="currentColor"/></svg>
+      Tất cả bài học
+    </button>
+    <button class="tabbtn" data-tab="stats" type="button">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3v18h18"/><path d="M8 17v-6M13 17V7M18 17v-9"/></svg>
+      Thống kê
+    </button>
+  </nav>
+
+  <!-- ===== TAB HÔM NAY ===== -->
+  <section class="tabpane active" id="pane-today">
+    <div class="summary-grid">
+      <div class="card">
+        <h3>Phân bố theo môn</h3>
+        <div id="distSubject"></div>
+      </div>
+      <div class="card">
+        <h3>Tóm tắt nhanh</h3>
+        <div id="quickSummary"></div>
+        <button class="linklike" id="gotoStats" type="button">Xem thống kê đầy đủ →</button>
+      </div>
+    </div>
+
+    <div id="urgentBox"></div>
+    <div id="todayGroups"></div>
+
+    <div class="note">
+      <h4>Ghi nhận đã ôn ở đâu?</h4>
+      <p>Trang này chỉ để xem và thêm bài mới. Muốn ghi nhận đã ôn, bạn vào Google Sheet: chọn <b>Mức độ nhớ TRƯỚC</b> cho bài đó, rồi mới tick <b>Đã ôn</b> — hệ thống FSRS sẽ tự tính ngày ôn tiếp theo.</p>
+      <a class="btn small" href="https://docs.google.com/spreadsheets/d/11RklBcauP9tG--BFHY4a5ysHHIrgH43Hb-uPJbqJ27I" target="_blank" rel="noopener">Mở Google Sheet</a>
+    </div>
+  </section>
+
+  <!-- ===== TAB TẤT CẢ BÀI HỌC ===== -->
+  <section class="tabpane" id="pane-all">
+    <div class="toolbar">
+      <input class="search" id="searchBox" type="search" placeholder="Tìm theo tên bài…" autocomplete="off">
+      <div class="filters">
+        <span id="subjChips"></span>
+        <select id="statusSel" aria-label="Lọc theo trạng thái">
+          <option value="">Mọi trạng thái</option>
+          <option>Trễ hạn</option>
+          <option>Hôm nay cần ôn</option>
+          <option>Chờ đặt lịch</option>
+        </select>
+        <select id="recallSel" aria-label="Lọc theo mức nhớ">
+          <option value="">Mọi mức nhớ</option>
+          <option value="g1">Nhớ ≥ 90%</option>
+          <option value="g2">80 – 90%</option>
+          <option value="g3">70 – 80%</option>
+          <option value="g4">50 – 70%</option>
+          <option value="g5">Dưới 50%</option>
+        </select>
+        <button class="btn primary small addbtn" id="btnAdd" type="button">+ Thêm bài mới</button>
+      </div>
+    </div>
+    <div class="duetxt" id="allCount" style="margin:2px 2px 10px"></div>
+    <div class="rows" id="allRows"></div>
+  </section>
+
+  <!-- ===== TAB THỐNG KÊ ===== -->
+  <section class="tabpane" id="pane-stats">
+    <div class="summary-grid">
+      <div class="card">
+        <h3>Phân bố theo môn</h3>
+        <div id="distSubject2"></div>
+      </div>
+      <div class="card">
+        <h3>Phân bố theo % nhớ</h3>
+        <div id="distRecall"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Theo trạng thái</h3>
+      <div id="distStatus"></div>
+    </div>
+  </section>
+</div>
+
+<!-- ===== MODAL CHI TIẾT ===== -->
+<div class="overlay" id="detailOverlay">
+  <div class="modal modalwrap" role="dialog" aria-modal="true">
+    <button class="xbtn" id="detailClose" type="button" aria-label="Đóng">✕</button>
+    <div id="detailBody"></div>
+  </div>
+</div>
+
+<!-- ===== MODAL THÊM BÀI ===== -->
+<div class="overlay" id="addOverlay">
+  <div class="modal modalwrap" role="dialog" aria-modal="true">
+    <button class="xbtn" id="addClose" type="button" aria-label="Đóng">✕</button>
+    <h3 style="margin:0 30px 2px 0; font-size:18px">Thêm bài mới</h3>
+    <p style="margin:0; color:var(--muted); font-size:13.5px">Bài sẽ được ghi vào tab <b>Bảng ôn tập</b> trong Google Sheet.</p>
+    <form class="addform" id="addForm">
+      <label>Chủ đề *
+        <input id="fTopic" type="text" required placeholder="Tên bài học">
+      </label>
+      <label>Môn
+        <select id="fSubject">
+          <option>TOÁN</option><option>LÝ</option><option>HÓA</option><option>SỬ</option><option>VĂN</option>
+        </select>
+      </label>
+      <label>Ngày học
+        <input id="fDate" type="date" required>
+      </label>
+      <label>Nơi viết
+        <input id="fNotebook" type="text" placeholder="Vở, giấy, máy… (không bắt buộc)">
+      </label>
+      <label>Ghi chú lỗi sai
+        <textarea id="fMistakes" rows="2" placeholder="Không bắt buộc"></textarea>
+      </label>
+      <label>Đáp án / Gợi ý
+        <textarea id="fAnswer" rows="2" placeholder="Không bắt buộc"></textarea>
+      </label>
+      <div class="formerr" id="fError"></div>
+      <button class="btn primary" id="fSubmit" type="submit" style="justify-content:center">Lưu vào Bảng ôn tập</button>
+    </form>
+  </div>
+</div>
+
+<div id="toast" role="status"></div>
+
+<script>
+"use strict";
+/* ===== Firebase config — chép nguyên văn từ web Thư viện Video Bấm Máy ===== */
+const firebaseConfig = { apiKey: "AIzaSyBAyMWdWWYySvGGsGORFZrTj4aM6oj6cpE", authDomain: "giupaedonv1.firebaseapp.com", projectId: "giupaedonv1", storageBucket: "giupaedonv1.firebasestorage.app", messagingSenderId: "1053830682519", appId: "1:1053830682519:web:4a1ceada98de52d8c956d2" };
+const SR_SHEET_ID = "11RklBcauP9tG--BFHY4a5ysHHIrgH43Hb-uPJbqJ27I";
+const SR_TAB = "Bảng ôn tập";
+const OWNER_EMAIL_SR = "thaonguyenvg19@gmail.com";
+const SHEETS_API = "https://sheets.googleapis.com/v4/spreadsheets/" + SR_SHEET_ID + "/values/";
+
+/* ===== Bản chụp dự phòng (69 bài, chụp 23/11/2026) ===== */
+const SNAPSHOT = [{"row":2,"topic":"3 đường cônic","subject":"TOÁN","lastGrade":"Khó","learnedDate":"05/11/2026","lastReview":"16/11/2026","reviewCount":"3","dueDate":"01/12/2026","status":"Chờ đặt lịch","notebook":"Giấy","mistakes":"Chưa nhớ đoạn parabol","answer":"","S":"15,02","D":"6,74","recall":"94%","interval":"15","history":"Đã ôn 2 lần · lần cuối 08/11/2026 · mức gần nhất: Khó\n16/11/2026: Khó → S 15.02"},{"row":3,"topic":"Alcohol","subject":"HÓA","lastGrade":"Bình thường","learnedDate":"15/10/2026","lastReview":"03/11/2026","reviewCount":"4","dueDate":"03/12/2026","status":"Chờ đặt lịch","notebook":"Vở","mistakes":"Còn quên điều chế, sản xuất glycerol, sx giấm","answer":"","S":"30,00","D":"2,12","recall":"93%","interval":"30","history":"Đã ôn 4 lần · lần cuối 03/11/2026 · mức gần nhất: Bình thường"},{"row":4,"topic":"Amonia","subject":"HÓA","lastGrade":"Bình thường","learnedDate":"07/10/2026","lastReview":"06/11/2026","reviewCount":"4","dueDate":"06/12/2026","status":"Chờ đặt lịch","notebook":"Vở","mistakes":"Còn quên sản xuất phân đạm urea","answer":"","S":"30,00","D":"2,12","recall":"93%","interval":"30","history":"Đã ôn 4 lần · lần cuối 06/11/2026 · mức gần nhất: Bình thường"},{"row":5,"topic":"Bài toán thời gian trong ddđh","subject":"LÝ","lastGrade":"Bình thường","learnedDate":"22/10/2026","lastReview":"03/11/2026","reviewCount":"2","dueDate":"17/11/2026","status":"Trễ hạn","notebook":"Trong vở","mistakes":"","answer":"","S":"14,00","D":"2,12","recall":"87%","interval":"14","history":"Đã ôn 2 lần · lần cuối 03/11/2026 · mức gần nhất: Bình thường"},{"row":6,"topic":"Bài toán tìm số","subject":"TOÁN","lastGrade":"Rất khó","learnedDate":"08/11/2026","lastReview":"22/11/2026","reviewCount":"1","dueDate":"23/11/2026","status":"Hôm nay cần ôn","notebook":"","mistakes":"","answer":"","S":"0,21","D":"6,41","recall":"77%","interval":"1","history":"22/11/2026: Rất khó → S 0.21"},{"row":7,"topic":"Các bài toán lãi suất (hocmai)","subject":"TOÁN","lastGrade":"Bình thường","learnedDate":"13/11/2026","lastReview":"23/11/2026","reviewCount":"6","dueDate":"24/11/2026","status":"Chờ đặt lịch","notebook":"Máy","mistakes":"","answer":"","S":"0,97","D":"9,82","recall":"100%","interval":"1","history":"Đã ôn 2 lần · lần cuối 15/11/2026 · mức gần nhất: Rất khó\n17/11/2026: Rất khó → S 0.07\n18/11/2026: Rất khó → S 0.04\n20/11/2026: Bình thường → S 0.26\n23/11/2026: Bình thường → S 0.97"},{"row":8,"topic":"Các bài toán tổ hợp, xác xuất liên quan đến tam giác, tứ giác","subject":"TOÁN","lastGrade":"Khó","learnedDate":"12/10/2026","lastReview":"18/11/2026","reviewCount":"5","dueDate":"14/12/2026","status":"Chờ đặt lịch","notebook":"","mistakes":"","answer":"","S":"26,38","D":"6,74","recall":"97%","interval":"26","history":"Đã ôn 4 lần · lần cuối 04/11/2026 · mức gần nhất: Khó\n18/11/2026: Khó → S 26.38"},{"row":9,"topic":"Cân bằng hóa học","subject":"HÓA","lastGrade":"Bình thường","learnedDate":"02/10/2026","lastReview":"07/11/2026","reviewCount":"3","dueDate":"28/11/2026","status":"Chờ đặt lịch","notebook":"","mistakes":"","answer":"","S":"21,00","D":"2,12","recall":"92%","interval":"21","history":"Đã ôn 3 lần · lần cuối 07/11/2026 · mức gần nhất: Bình thường"},{"row":10,"topic":"Cân bằng trong dung dịch nước","subject":"HÓA","lastGrade":"Khó","learnedDate":"08/11/2026","lastReview":"12/11/2026","reviewCount":"2","dueDate":"17/11/2026","status":"Trễ hạn","notebook":"Vở","mistakes":"","answer":"","S":"5","D":"5,11","recall":"84%","interval":"5","history":"Đã ôn 2 lần · lần cuối 12/11/2026 · mức gần nhất: Khó"},{"row":11,"topic":"Cấu tạo nguyên từ và bảng tuần hoàn","subject":"HÓA","lastGrade":"Bình thường","learnedDate":"25/09/2026","lastReview":"06/11/2026","reviewCount":"3","dueDate":"27/11/2026","status":"Chờ đặt lịch","notebook":"","mistakes":"","answer":"","S":"21,00","D":"2,12","recall":"91%","interval":"21","history":"Đã ôn 3 lần · lần cuối 06/11/2026 · mức gần nhất: Bình thường"},{"row":12,"topic":"Chuyển động tròn đều","subject":"LÝ","lastGrade":"Rất khó","learnedDate":"17/10/2026","lastReview":"11/11/2026","reviewCount":"3","dueDate":"13/11/2026","status":"Trễ hạn","notebook":"","mistakes":"","answer":"","S":"2,00","D":"6,41","recall":"74%","interval":"2","history":"Đã ôn 3 lần · lần cuối 11/11/2026 · mức gần nhất: Rất khó"},{"row":13,"topic":"Công suất và động năng-thế năng-cơ năng","subject":"LÝ","lastGrade":"Bình thường","learnedDate":"15/10/2026","lastReview":"30/10/2026","reviewCount":"3","dueDate":"20/11/2026","status":"Trễ hạn","notebook":"Giấy","mistakes":"","answer":"Đã học xong","S":"21,00","D":"2,12","recall":"89%","interval":"21","history":"Đã ôn 3 lần · lần cuối 30/10/2026 · mức gần nhất: Bình thường"},{"row":14,"topic":"Công thức taylor giải mọi bài toán tìm Lim","subject":"TOÁN","lastGrade":"Mới học","learnedDate":"21/08/2026","lastReview":"","reviewCount":"","dueDate":"21/08/2026","status":"Trễ hạn","notebook":"Ghi ở vở đại học","mistakes":"","answer":"","S":"","D":"","recall":"50%","interval":"","history":""},{"row":15,"topic":"Cường độ âm","subject":"LÝ","lastGrade":"Bình thường","learnedDate":"03/10/2026","lastReview":"08/11/2026","reviewCount":"3","dueDate":"29/11/2026","status":"Chờ đặt lịch","notebook":"Ghi ở vở","mistakes":"","answer":"","S":"21,00","D":"2,12","recall":"92%","interval":"21","history":"Đã ôn 3 lần · lần cuối 08/11/2026 · mức gần nhất: Bình thường"},{"row":16,"topic":"Dẫn xuất halogen","subject":"HÓA","lastGrade":"Bình thường","learnedDate":"20/10/2026","lastReview":"01/11/2026","reviewCount":"3","dueDate":"22/11/2026","status":"Trễ hạn","notebook":"Vở","mistakes":"","answer":"","S":"21,00","D":"2,12","recall":"90%","interval":"21","history":"Đã ôn 3 lần · lần cuối 01/11/2026 · mức gần nhất: Bình thường"},{"row":17,"topic":"Đại cương dao động điều hòa","subject":"LÝ","lastGrade":"Bình thường","learnedDate":"18/10/2026","lastReview":"03/11/2026","reviewCount":"4","dueDate":"03/12/2026","status":"Chờ đặt lịch","notebook":"Ghi ở vở + giấy","mistakes":"","answer":"","S":"30,00","D":"2,12","recall":"93%","interval":"30","history":"Đã ôn 4 lần · lần cuối 03/11/2026 · mức gần nhất: Bình thường"},{"row":18,"topic":"Điện trường - dòng điện và mạch điện","subject":"LÝ","lastGrade":"Bình thường","learnedDate":"10/10/2026","lastReview":"09/11/2026","reviewCount":"4","dueDate":"09/12/2026","status":"Chờ đặt lịch","notebook":"Vở","mistakes":"","answer":"","S":"30,00","D":"2,12","recall":"94%","interval":"30","history":"Đã ôn 4 lần · lần cuối 09/11/2026 · mức gần nhất: Bình thường"},{"row":19,"topic":"Định lý Kaplansky và các ứng dụng","subject":"TOÁN","lastGrade":"Bình thường","learnedDate":"01/11/2026","lastReview":"20/11/2026","reviewCount":"3","dueDate":"16/01/2027","status":"Chờ đặt lịch","notebook":"Vở","mistakes":"","answer":"","S":"57,15","D":"2,11","recall":"99%","interval":"57","history":"Đã ôn 2 lần · lần cuối 06/11/2026 · mức gần nhất: Bình thường\n20/11/2026: Bình thường → S 57.15"},{"row":20,"topic":"Động học","subject":"LÝ","lastGrade":"Bình thường","learnedDate":"24/09/2026","lastReview":"12/11/2026","reviewCount":"4","dueDate":"12/12/2026","status":"Chờ đặt lịch","notebook":"","mistakes":"2 phương trình v của ox oy chuyển động ném xiên vẫn chưa nhớ","answer":"","S":"30","D":"2,12","recall":"95%","interval":"30","history":"Đã ôn 4 lần · lần cuối 12/11/2026 · mức gần nhất: Bình thường"},{"row":21,"topic":"Động lực học","subject":"LÝ","lastGrade":"Bình thường","learnedDate":"30/09/2026","lastReview":"05/11/2026","reviewCount":"3","dueDate":"26/11/2026","status":"Chờ đặt lịch","notebook":"Giấy","mistakes":"","answer":"","S":"21,00","D":"2,12","recall":"91%","interval":"21","history":"Đã ôn 3 lần · lần cuối 05/11/2026 · mức gần nhất: Bình thường"},{"row":22,"topic":"Động lượng","subject":"LÝ","lastGrade":"Bình thường","learnedDate":"17/10/2026","lastReview":"23/11/2026","reviewCount":"4","dueDate":"14/12/2026","status":"Chờ đặt lịch","notebook":"","mistakes":"","answer":"","S":"20,85","D":"6,74","recall":"100%","interval":"21","history":"Đã ôn 3 lần · lần cuối 11/11/2026 · mức gần nhất: Khó\n23/11/2026: Khó → S 20.85"},{"row":23,"topic":"Đơn vị đo - sai số","subject":"LÝ","lastGrade":"Bình thường","learnedDate":"02/10/2026","lastReview":"07/11/2026","reviewCount":"3","dueDate":"28/11/2026","status":"Chờ đặt lịch","notebook":"","mistakes":"","answer":"","S":"21,00","D":"2,12","recall":"92%","interval":"21","history":"Đã ôn 3 lần · lần cuối 07/11/2026 · mức gần nhất: Bình thường"},{"row":24,"topic":"Đường tiệm cận chứa tham số m","subject":"TOÁN","lastGrade":"Bình thường","learnedDate":"26/10/2026","lastReview":"09/11/2026","reviewCount":"1","dueDate":"16/11/2026","status":"Trễ hạn","notebook":"Vở","mistakes":"","answer":"","S":"7,00","D":"2,12","recall":"85%","interval":"7","history":"Đã ôn 1 lần · lần cuối 09/11/2026 · mức gần nhất: Bình thường"},{"row":25,"topic":"Giao thoa ánh sáng","subject":"LÝ","lastGrade":"Bình thường","learnedDate":"02/11/2026","lastReview":"20/11/2026","reviewCount":"3","dueDate":"20/01/2027","status":"Chờ đặt lịch","notebook":"","mistakes":"","answer":"","S":"61,40","D":"2,11","recall":"99%","interval":"61","history":"Đã ôn 2 lần · lần cuối 04/11/2026 · mức gần nhất: Bình thường\n20/11/2026: Bình thường → S 61.4"},{"row":26,"topic":"Giao thoa sóng","subject":"LÝ","lastGrade":"Khó","learnedDate":"02/11/2026","lastReview":"20/11/2026","reviewCount":"3","dueDate":"20/01/2027","status":"Chờ đặt lịch","notebook":"","mistakes":"","answer":"","S":"61,40","D":"2,11","recall":"99%","interval":"61","history":"Đã ôn 2 lần · lần cuối 04/11/2026 · mức gần nhất: Bình thường\n20/11/2026: Bình thường → S 61.4"},{"row":27,"topic":"Hệ thức lượng trong tam giác","subject":"TOÁN","lastGrade":"Bình thường","learnedDate":"24/10/2026","lastReview":"12/11/2026","reviewCount":"3","dueDate":"03/12/2026","status":"Chờ đặt lịch","notebook":"","mistakes":"","answer":"","S":"21","D":"2,12","recall":"94%","interval":"21","history":"Đã ôn 3 lần · lần cuối 12/11/2026 · mức gần nhất: Bình thường"},{"row":28,"topic":"Hợp chất hữu cơ và hóa học hữu cơ","subject":"HÓA","lastGrade":"Khó","learnedDate":"31/10/2026","lastReview":"23/11/2026","reviewCount":"4","dueDate":"15/12/2026","status":"Chờ đặt lịch","notebook":"Vở","mistakes":"","answer":"","S":"22,22","D":"6,74","recall":"100%","interval":"22","history":"Đã ôn 3 lần · lần cuối 09/11/2026 · mức gần nhất: Khó\n23/11/2026: Khó → S 22.22"},{"row":29,"topic":"Khoảng cách 2 đường thẳng chéo nhau","subject":"TOÁN","lastGrade":"Bình thường","learnedDate":"11/10/2026","lastReview":"04/11/2026","reviewCount":"3","dueDate":"25/11/2026","status":"Chờ đặt lịch","notebook":"Ghi ở vở","mistakes":"","answer":"","S":"21,00","D":"2,12","recall":"91%","interval":"21","history":"Đã ôn 3 lần · lần cuối 04/11/2026 · mức gần nhất: Bình thường"},{"row":30,"topic":"Khoảng cách từ 1 điểm đến 1 mặt phẳng","subject":"TOÁN","lastGrade":"Bình thường","learnedDate":"11/10/2026","lastReview":"04/11/2026","reviewCount":"3","dueDate":"25/11/2026","status":"Chờ đặt lịch","notebook":"Ghi ở vở","mistakes":"","answer":"","S":"21,00","D":"2,12","recall":"91%","interval":"21","history":"Đã ôn 3 lần · lần cuối 04/11/2026 · mức gần nhất: Bình thường"},{"row":31,"topic":"Kĩ thuật vách ngăn và kĩ thuật tạo khối trong bài toán tổ hợp","subject":"TOÁN","lastGrade":"Bình thường","learnedDate":"16/10/2026","lastReview":"22/11/2026","reviewCount":"3","dueDate":"17/02/2027","status":"Chờ đặt lịch","notebook":"Trên máy","mistakes":"","answer":"Chưa học xong, chỉ cần xem lại các câu đã làm phía trước","S":"87,49","D":"2,11","recall":"100%","interval":"87","history":"Đã ôn 2 lần · lần cuối 21/10/2026 · mức gần nhất: Bình thường\n22/11/2026: Bình thường → S 87.49"},{"row":32,"topic":"Lực điện (IPCLASS)","subject":"LÝ","lastGrade":"Bình thường","learnedDate":"13/11/2026","lastReview":"17/11/2026","reviewCount":"2","dueDate":"28/11/2026","status":"Chờ đặt lịch","notebook":"Vở","mistakes":"","answer":"","S":"10,96","D":"2,11","recall":"94%","interval":"11","history":"Đã ôn 1 lần · lần cuối 15/11/2026 · mức gần nhất: Bình thường\n17/11/2026: Bình thường → S 10.96"},{"row":33,"topic":"MIN – MAX HÀM CHỨA TRỊ TUYỆT ĐỐI","subject":"TOÁN","lastGrade":"Khó","learnedDate":"02/10/2026","lastReview":"18/11/2026","reviewCount":"3","dueDate":"02/12/2026","status":"Chờ đặt lịch","notebook":"","mistakes":"","answer":"","S":"14,19","D":"6,74","recall":"96%","interval":"14","history":"Đã ôn 2 lần · lần cuối 11/11/2026 · mức gần nhất: Khó\n18/11/2026: Khó → S 14.19"},{"row":34,"topic":"Momen lực","subject":"LÝ","lastGrade":"Bình thường","learnedDate":"14/10/2026","lastReview":"06/11/2026","reviewCount":"3","dueDate":"27/11/2026","status":"Chờ đặt lịch","notebook":"Vở","mistakes":"","answer":"","S":"21,00","D":"2,12","recall":"91%","interval":"21","history":"Đã ôn 3 lần · lần cuối 06/11/2026 · mức gần nhất: Bình thường"},{"row":35,"topic":"Một số hợp chất của nitrogen với oxygen","subject":"HÓA","lastGrade":"Bình thường","learnedDate":"25/10/2026","lastReview":"23/11/2026","reviewCount":"4","dueDate":"24/11/2026","status":"Chờ đặt lịch","notebook":"Vở","mistakes":"","answer":"","S":"0,56","D":"9,58","recall":"100%","interval":"1","history":"Đã ôn 2 lần · lần cuối 15/11/2026 · mức gần nhất: Rất khó\n18/11/2026: Rất khó → S 0.08\n23/11/2026: Bình thường → S 0.56"},{"row":36,"topic":"Muối ammonium","subject":"HÓA","lastGrade":"Khó","learnedDate":"07/10/2026","lastReview":"23/11/2026","reviewCount":"4","dueDate":"15/12/2026","status":"Chờ đặt lịch","notebook":"Vở","mistakes":"","answer":"","S":"22,22","D":"6,74","recall":"100%","interval":"22","history":"Đã ôn 3 lần · lần cuối 09/11/2026 · mức gần nhất: Khó\n23/11/2026: Khó → S 22.22"},{"row":37,"topic":"Năng lượng của con lắc đơn","subject":"LÝ","lastGrade":"Bình thường","learnedDate":"17/10/2026","lastReview":"30/10/2026","reviewCount":"2","dueDate":"13/11/2026","status":"Trễ hạn","notebook":"Vở","mistakes":"","answer":"","S":"14,00","D":"2,12","recall":"86%","interval":"14","history":"Đã ôn 2 lần · lần cuối 30/10/2026 · mức gần nhất: Bình thường"},{"row":38,"topic":"Năng lượng trong dđđh","subject":"LÝ","lastGrade":"Bình thường","learnedDate":"02/10/2026","lastReview":"07/11/2026","reviewCount":"3","dueDate":"28/11/2026","status":"Chờ đặt lịch","notebook":"Ghi ở vở","mistakes":"","answer":"","S":"21,00","D":"2,12","recall":"92%","interval":"21","history":"Đã ôn 3 lần · lần cuối 07/11/2026 · mức gần nhất: Bình thường"},{"row":39,"topic":"Năng lượng và các định luật bảo toàn","subject":"LÝ","lastGrade":"Bình thường","learnedDate":"30/09/2026","lastReview":"08/11/2026","reviewCount":"3","dueDate":"29/11/2026","status":"Chờ đặt lịch","notebook":"","mistakes":"","answer":"","S":"21,00","D":"2,12","recall":"92%","interval":"21","history":"Đã ôn 3 lần · lần cuối 08/11/2026 · mức gần nhất: Bình thường"},{"row":40,"topic":"Nguyên hàm hữu tỉ","subject":"TOÁN","lastGrade":"Bình thường","learnedDate":"19/10/2026","lastReview":"04/11/2026","reviewCount":"3","dueDate":"25/11/2026","status":"Chờ đặt lịch","notebook":"","mistakes":"","answer":"","S":"21,00","D":"2,12","recall":"91%","interval":"21","history":"Đã ôn 3 lần · lần cuối 04/11/2026 · mức gần nhất: Bình thường"},{"row":41,"topic":"Nitrogen","subject":"HÓA","lastGrade":"Bình thường","learnedDate":"02/10/2026","lastReview":"05/11/2026","reviewCount":"3","dueDate":"26/11/2026","status":"Chờ đặt lịch","notebook":"Vở","mistakes":"","answer":"","S":"21,00","D":"2,12","recall":"91%","interval":"21","history":"Đã ôn 3 lần · lần cuối 05/11/2026 · mức gần nhất: Bình thường"},{"row":42,"topic":"Phenol","subject":"HÓA","lastGrade":"Bình thường","learnedDate":"16/10/2026","lastReview":"01/11/2026","reviewCount":"4","dueDate":"01/12/2026","status":"Chờ đặt lịch","notebook":"Ghi ở vở","mistakes":"","answer":"","S":"30,00","D":"2,12","recall":"92%","interval":"30","history":"Đã ôn 4 lần · lần cuối 01/11/2026 · mức gần nhất: Bình thường"},{"row":43,"topic":"Phương pháp chuẩn độ - pH dung dịch","subject":"HÓA","lastGrade":"Dễ","learnedDate":"02/10/2026","lastReview":"25/10/2026","reviewCount":"2","dueDate":"24/11/2026","status":"Chờ đặt lịch","notebook":"","mistakes":"","answer":"","S":"30,00","D":"1,00","recall":"90%","interval":"30","history":"Đã ôn 2 lần · lần cuối 25/10/2026 · mức gần nhất: Dễ"},{"row":44,"topic":"Phương trình sóng và độ lệch pha","subject":"LÝ","lastGrade":"Khó","learnedDate":"27/10/2026","lastReview":"15/11/2026","reviewCount":"3","dueDate":"11/01/2027","status":"Chờ đặt lịch","notebook":"vở","mistakes":"","answer":"","S":"57,15","D":"2,11","recall":"98%","interval":"57","history":"Đã ôn 3 lần · lần cuối 15/11/2026 · mức gần nhất: Khó"},{"row":45,"topic":"Sóng","subject":"LÝ","lastGrade":"Khó","learnedDate":"03/10/2026","lastReview":"11/11/2026","reviewCount":"3","dueDate":"18/11/2026","status":"Trễ hạn","notebook":"Ghi ở vở","mistakes":"Quên sóng dừng\n  • 2 đầu cố định\n  • 1 đầu có định 1 đầu tự do","answer":"","S":"7,00","D":"5,11","recall":"86%","interval":"7","history":"Đã ôn 3 lần · lần cuối 11/11/2026 · mức gần nhất: Khó"},{"row":46,"topic":"Sóng dừng","subject":"LÝ","lastGrade":"Khó","learnedDate":"11/11/2026","lastReview":"20/11/2026","reviewCount":"4","dueDate":"21/11/2026","status":"Trễ hạn","notebook":"Vở","mistakes":"2 cái chữ màu đỏ còn quên","answer":"","S":"1,48","D":"9,45","recall":"84%","interval":"1","history":"Đã ôn 2 lần · lần cuối 15/11/2026 · mức gần nhất: Khó\n18/11/2026: Khó → S 0.66\n20/11/2026: Khó → S 1.48"},{"row":47,"topic":"Sóng điện từ","subject":"LÝ","lastGrade":"Bình thường","learnedDate":"03/10/2026","lastReview":"07/11/2026","reviewCount":"3","dueDate":"28/11/2026","status":"Chờ đặt lịch","notebook":"Vở","mistakes":"","answer":"","S":"21,00","D":"2,12","recall":"92%","interval":"21","history":"Đã ôn 3 lần · lần cuối 07/11/2026 · mức gần nhất: Bình thường"},{"row":48,"topic":"Sulfur và Sulfur dioxide","subject":"HÓA","lastGrade":"Mới học","learnedDate":"28/10/2026","lastReview":"","reviewCount":"","dueDate":"28/10/2026","status":"Trễ hạn","notebook":"Vở","mistakes":"","answer":"","S":"","D":"","recall":"60%","interval":"","history":""},{"row":49,"topic":"Sulfuric acid và muối sulfate","subject":"HÓA","lastGrade":"Mới học","learnedDate":"12/11/2026","lastReview":"","reviewCount":"","dueDate":"12/11/2026","status":"Trễ hạn","notebook":"Vở","mistakes":"","answer":"","S":"","D":"","recall":"68%","interval":"","history":""},{"row":50,"topic":"Sự biến đổi tuần hoàn tính chất","subject":"HÓA","lastGrade":"Bình thường","learnedDate":"29/09/2026","lastReview":"07/11/2026","reviewCount":"3","dueDate":"28/11/2026","status":"Chờ đặt lịch","notebook":"","mistakes":"","answer":"","S":"21,00","D":"2,12","recall":"92%","interval":"21","history":"Đã ôn 3 lần · lần cuối 07/11/2026 · mức gần nhất: Bình thường"},{"row":51,"topic":"Sự điện ly - chất điện ly","subject":"HÓA","lastGrade":"Khó","learnedDate":"02/10/2026","lastReview":"12/11/2026","reviewCount":"3","dueDate":"19/11/2026","status":"Trễ hạn","notebook":"","mistakes":"","answer":"","S":"7","D":"5,11","recall":"87%","interval":"7","history":"Đã ôn 3 lần · lần cuối 12/11/2026 · mức gần nhất: Khó"},{"row":52,"topic":"Tính đơn điệu của hàm chứa giá trị tuyệt đối","subject":"TOÁN","lastGrade":"Bình thường","learnedDate":"30/09/2026","lastReview":"09/11/2026","reviewCount":"2","dueDate":"23/11/2026","status":"Hôm nay cần ôn","notebook":"","mistakes":"","answer":"","S":"14,00","D":"2,12","recall":"90%","interval":"14","history":"Đã ôn 2 lần · lần cuối 09/11/2026 · mức gần nhất: Bình thường"},{"row":53,"topic":"TƯƠNG GIAO CỦA ĐỒ THỊ HÀM CHỨA TRỊ TUYỆT ĐỐI","subject":"TOÁN","lastGrade":"Bình thường","learnedDate":"30/09/2026","lastReview":"09/11/2026","reviewCount":"2","dueDate":"23/11/2026","status":"Hôm nay cần ôn","notebook":"Máy","mistakes":"","answer":"","S":"14,00","D":"2,12","recall":"90%","interval":"14","history":"Đã ôn 2 lần · lần cuối 09/11/2026 · mức gần nhất: Bình thường"},{"row":54,"topic":"Ứng dụng đạo hàm giải bài toán thực tế","subject":"TOÁN","lastGrade":"Bình thường","learnedDate":"02/10/2026","lastReview":"19/10/2026","reviewCount":"2","dueDate":"02/11/2026","status":"Trễ hạn","notebook":"Máy","mistakes":"","answer":"","S":"14,00","D":"2,12","recall":"83%","interval":"14","history":"Đã ôn 2 lần · lần cuối 19/10/2026 · mức gần nhất: Bình thường"},{"row":55,"topic":"Ứng dụng hàm số giải phương trình","subject":"TOÁN","lastGrade":"Bình thường","learnedDate":"05/10/2026","lastReview":"19/10/2026","reviewCount":"2","dueDate":"02/11/2026","status":"Trễ hạn","notebook":"Ghi ở vở","mistakes":"","answer":"","S":"14,00","D":"2,12","recall":"83%","interval":"14","history":"Đã ôn 2 lần · lần cuối 19/10/2026 · mức gần nhất: Bình thường"},{"row":56,"topic":"ỨNG DỤNG TÍCH PHÂN TÍNH GIẢI BÀI TOÁN\nCHUYỂN ĐỘNG, TĂNG TRƯỞNG CƠ BẢN","subject":"TOÁN","lastGrade":"Bình thường","learnedDate":"22/10/2026","lastReview":"18/11/2026","reviewCount":"1","dueDate":"20/11/2026","status":"Trễ hạn","notebook":"Vở","mistakes":"","answer":"","S":"2,31","D":"2,12","recall":"84%","interval":"2","history":"18/11/2026: Bình thường → S 2.31"},{"row":57,"topic":"Vỏ nguyên tử","subject":"HÓA","lastGrade":"Bình thường","learnedDate":"28/09/2026","lastReview":"05/11/2026","reviewCount":"3","dueDate":"26/11/2026","status":"Chờ đặt lịch","notebook":"Vở","mistakes":"","answer":"","S":"21,00","D":"2,12","recall":"91%","interval":"21","history":"Đã ôn 3 lần · lần cuối 05/11/2026 · mức gần nhất: Bình thường"},{"row":58,"topic":"Chất béo","subject":"HÓA","lastGrade":"Bình thường","learnedDate":"11/10/2026","lastReview":"20/11/2026","reviewCount":"3","dueDate":"26/11/2026","status":"Chờ đặt lịch","notebook":"Vở","mistakes":"chưa nhớ được các phân tử khối quan trọng","answer":"","S":"5,69","D":"7,59","recall":"94%","interval":"6","history":"16/11/2026: Khó → S 1.22\n20/11/2026: Bình thường → S 5.69"},{"row":59,"topic":"Ester","subject":"HÓA","lastGrade":"Bình thường","learnedDate":"11/10/2026","lastReview":"20/11/2026","reviewCount":"4","dueDate":"28/11/2026","status":"Chờ đặt lịch","notebook":"Vở","mistakes":"","answer":"","S":"7,69","D":"7,58","recall":"95%","interval":"8","history":"16/11/2026: Khó → S 1.22\n17/11/2026: Bình thường → S 3.09\n20/11/2026: Bình thường → S 7.69"},{"row":60,"topic":"Amine - Amino acid - Peptide - Protein","subject":"HÓA","lastGrade":"Rất khó","learnedDate":"16/10/2026","lastReview":"","reviewCount":"","dueDate":"17/10/2026","status":"Trễ hạn","notebook":"Vở","mistakes":"","answer":"","S":"","D":"","recall":"57%","interval":"","history":""},{"row":61,"topic":"Polymer","subject":"HÓA","lastGrade":"Rất khó","learnedDate":"01/11/2026","lastReview":"22/11/2026","reviewCount":"1","dueDate":"23/11/2026","status":"Hôm nay cần ôn","notebook":"Vở","mistakes":"Vẫn quên công thức phân tử của polymer và tơ","answer":"","S":"0,21","D":"6,41","recall":"77%","interval":"1","history":"22/11/2026: Rất khó → S 0.21"},{"row":62,"topic":"Glucose - Fructose","subject":"HÓA","lastGrade":"Bình thường","learnedDate":"01/11/2026","lastReview":"20/11/2026","reviewCount":"3","dueDate":"26/11/2026","status":"Chờ đặt lịch","notebook":"Vở","mistakes":"","answer":"","S":"5,69","D":"7,59","recall":"94%","interval":"6","history":"16/11/2026: Khó → S 1.22\n20/11/2026: Bình thường → S 5.69"},{"row":63,"topic":"Các bài tập về cân bằng hóa học (thầy Trọng)","subject":"HÓA","lastGrade":"Bình thường","learnedDate":"07/11/2026","lastReview":"","reviewCount":"","dueDate":"14/11/2026","status":"Trễ hạn","notebook":"Vở","mistakes":"","answer":"","S":"","D":"","recall":"83%","interval":"","history":""},{"row":64,"topic":"Xà phòng và chất rửa tổng hợp","subject":"HÓA","lastGrade":"Bình thường","learnedDate":"07/11/2026","lastReview":"20/11/2026","reviewCount":"3","dueDate":"26/11/2026","status":"Chờ đặt lịch","notebook":"Vở","mistakes":"","answer":"","S":"5,62","D":"7,59","recall":"94%","interval":"6","history":"17/11/2026: Khó → S 1.55\n20/11/2026: Bình thường → S 5.62"},{"row":65,"topic":"Saccharose - Maltose","subject":"HÓA","lastGrade":"Bình thường","learnedDate":"10/11/2026","lastReview":"20/11/2026","reviewCount":"3","dueDate":"28/11/2026","status":"Chờ đặt lịch","notebook":"","mistakes":"","answer":"","S":"7,51","D":"7,82","recall":"95%","interval":"8","history":"16/11/2026: Khó → S 3.25\n20/11/2026: Khó → S 7.51"},{"row":66,"topic":"Tinh bột - Cellulose","subject":"HÓA","lastGrade":"Bình thường","learnedDate":"10/11/2026","lastReview":"22/11/2026","reviewCount":"2","dueDate":"29/11/2026","status":"Chờ đặt lịch","notebook":"","mistakes":"","answer":"","S":"6,57","D":"5,10","recall":"98%","interval":"7","history":"20/11/2026: Khó → S 1.29\n22/11/2026: Bình thường → S 6.57"},{"row":67,"topic":"Bài 11: LÝ THUYẾT VỀ CÁC DẠNG CÂU HỎI VỀ PHƯƠNG CHÂM HỘI THOẠI","subject":"VĂN","lastGrade":"Mới học","learnedDate":"18/11/2026","lastReview":"","reviewCount":"","dueDate":"18/11/2026","status":"Trễ hạn","notebook":"Giấy + SGk","mistakes":"","answer":"Đọc qua thôi","S":"","D":"","recall":"76%","interval":"","history":""},{"row":68,"topic":"Bài 1: Điện trường","subject":"LÝ","lastGrade":"Mới học","learnedDate":"18/11/2026","lastReview":"","reviewCount":"","dueDate":"18/11/2026","status":"Trễ hạn","notebook":"Vở","mistakes":"","answer":"","S":"","D":"","recall":"76%","interval":"","history":""},{"row":69,"topic":"Bài 17: Giới hạn dãy số","subject":"TOÁN","lastGrade":"Mới học","learnedDate":"23/11/2026","lastReview":"","reviewCount":"","dueDate":"23/11/2026","status":"Hôm nay cần ôn","notebook":"Máy","mistakes":"","answer":"Đọc qua thôi","S":"","D":"","recall":"100%","interval":"","history":""},{"row":70,"topic":"Bài 18: Giới hạn hàm số","subject":"TOÁN","lastGrade":"Mới học","learnedDate":"23/11/2026","lastReview":"","reviewCount":"","dueDate":"23/11/2026","status":"Hôm nay cần ôn","notebook":"","mistakes":"","answer":"","S":"","D":"","recall":"100%","interval":"","history":""}];
+
+/* ===== Màu môn: nền pastel + chữ đậm sẫm ===== */
+const SUBJ = {
+  "TOÁN": { bg: "#CCE0FA", fg: "#0D1A40", bar: "#4A7FD4" },
+  "LÝ":   { bg: "#E3D6F7", fg: "#29144D", bar: "#8B5CF6" },
+  "HÓA":  { bg: "#D1F2D9", fg: "#0D401F", bar: "#2FA84F" },
+  "SỬ":   { bg: "#FCEDC7", fg: "#523308", bar: "#D9A404" },
+  "VĂN":  { bg: "#FAD9E3", fg: "#591226", bar: "#D45D7E" }
+};
+const SUBJ_DEFAULT = { bg: "#EEF2F7", fg: "#1A2332", bar: "#94A3B8" };
+const SUBJECTS = ["TOÁN", "LÝ", "HÓA", "SỬ", "VĂN"];
+
+/* ===== Trạng thái ===== */
+let lessons = [];
+let filterSubj = "";
+let lastCounts = { total: 0, today: 0, over: 0 };
+const REDUCED = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* ===== Tiện ích ===== */
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+  });
+}
+function todayStart() { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }
+function parseDMY(s) {
+  if (!s) return null;
+  const p = String(s).trim().split("/");
+  if (p.length !== 3) return null;
+  const d = new Date(+p[2], +p[1] - 1, +p[0]);
+  return isNaN(d.getTime()) ? null : d;
+}
+function overdueDays(L) {
+  const due = parseDMY(L.dueDate);
+  if (!due) return 0;
+  return Math.round((todayStart() - due) / 86400000);
+}
+function recallNum(L) {
+  const n = parseInt(String(L.recall || "").replace("%", ""), 10);
+  return isNaN(n) ? null : n;
+}
+function recallBand(L) {
+  const r = recallNum(L);
+  if (r == null) return "";
+  return r >= 90 ? "g1" : r >= 80 ? "g2" : r >= 70 ? "g3" : r >= 50 ? "g4" : "g5";
+}
+function bandColor(b) {
+  return { g1: "#15803D", g2: "#65A30D", g3: "#D9A404", g4: "#EA7A1F", g5: "#DC2626" }[b] || "#94A3B8";
+}
+function isTodayLesson(L) { return L.status === "Trễ hạn" || L.status === "Hôm nay cần ôn"; }
+function dueText(L) {
+  const od = overdueDays(L);
+  if (od > 0) return "Trễ " + od + " ngày";
+  if (od === 0) return "Đến hạn hôm nay";
+  return "Còn " + (-od) + " ngày · " + esc(L.dueDate);
+}
+function subjStyle(name) { return SUBJ[name] || SUBJ_DEFAULT; }
+
+/* ===== Token & cache ===== */
+function saveToken(tok) {
+  try { localStorage.setItem("sb-gtoken", JSON.stringify({ t: tok, exp: Date.now() + 55 * 60 * 1000 })); } catch (e) {}
+}
+function getToken() {
+  try {
+    const c = JSON.parse(localStorage.getItem("sb-gtoken") || "null");
+    if (c && c.t && c.exp > Date.now() + 30000) return c.t;
+  } catch (e) {}
+  return null;
+}
+function clearToken() { try { localStorage.removeItem("sb-gtoken"); } catch (e) {} }
+function saveCache(list) {
+  try { localStorage.setItem("sb-cache-v1", JSON.stringify({ at: Date.now(), lessons: list })); } catch (e) {}
+}
+function loadCache() {
+  try {
+    const c = JSON.parse(localStorage.getItem("sb-cache-v1") || "null");
+    if (c && Array.isArray(c.lessons) && c.lessons.length) return c;
+  } catch (e) {}
+  return null;
+}
+
+/* ===== Thông báo ===== */
+const noticeEl = document.getElementById("notice");
+function showNotice(msg) { noticeEl.textContent = msg; noticeEl.classList.add("show"); }
+function hideNotice() { noticeEl.classList.remove("show"); }
+let toastTimer = null;
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function () { t.classList.remove("show"); }, 3400);
+}
+
+/* ===== Đếm tăng số liệu ===== */
+function countUp(el, to) {
+  if (REDUCED || !el) { if (el) el.textContent = to; return; }
+  const from = parseInt(el.textContent, 10) || 0;
+  if (from === to) { el.textContent = to; return; }
+  const t0 = performance.now(), dur = 650;
+  function step(now) {
+    const p = Math.min(1, (now - t0) / dur);
+    el.textContent = Math.round(from + (to - from) * (1 - Math.pow(1 - p, 3)));
+    if (p < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+/* ===== Render ===== */
+function badgeHTML(L) {
+  if (L.status === "Trễ hạn") return '<span class="badge badge-over">Trễ hạn</span>';
+  if (L.status === "Hôm nay cần ôn") return '<span class="badge badge-today">Hôm nay cần ôn</span>';
+  return '<span class="badge badge-wait">Chờ đặt lịch</span>';
+}
+function rowHTML(L, i) {
+  const s = subjStyle(L.subject);
+  const rc = recallNum(L);
+  const pct = rc == null ? "—" : rc + "%";
+  const w = rc == null ? 0 : Math.max(0, Math.min(100, rc));
+  const col = bandColor(recallBand(L));
+  return '<button class="row fade-up" type="button" style="--i:' + i + '" onclick="openDetail(' + L.row + ')">' +
+    '<span class="row-main">' +
+      '<span class="row-topic">' + esc(L.topic) + '</span>' +
+      '<span class="row-sub">' +
+        '<span class="subj" style="background:' + s.bg + ';color:' + s.fg + '">' + esc(L.subject) + '</span>' +
+        badgeHTML(L) +
+        '<span class="duetxt">' + dueText(L) + '</span>' +
+      '</span>' +
+    '</span>' +
+    '<span class="recallbox"><span class="pct" style="color:' + col + '">' + pct + '</span>' +
+      '<span class="bar"><i data-w="' + w + '" style="background:' + col + '"></i></span></span>' +
+  '</button>';
+}
+function animateBars(scope) {
+  scope.querySelectorAll(".bar i[data-w]").forEach(function (el) {
+    requestAnimationFrame(function () { el.style.width = el.getAttribute("data-w") + "%"; });
+  });
+}
+function distHTML(counts, total, colorFn) {
+  const max = Math.max.apply(null, counts.map(function (c) { return c.n; }).concat([1]));
+  return counts.map(function (c) {
+    const pct = total ? Math.round(c.n / total * 100) : 0;
+    return '<div class="dist-row">' +
+      (c.chip ? '<span class="subj" style="background:' + c.chip.bg + ';color:' + c.chip.fg + ';min-width:64px;justify-content:center">' + esc(c.label) + '</span>'
+              : '<span style="min-width:64px;font-weight:600;font-size:13.5px">' + esc(c.label) + '</span>') +
+      '<span class="bar"><i data-w="' + Math.round(c.n / max * 100) + '" style="background:' + colorFn(c) + '"></i></span>' +
+      '<span class="num">' + c.n + '</span><span style="color:var(--muted);font-size:12.5px;min-width:34px">' + pct + '%</span>' +
+    '</div>';
+  }).join("");
+}
+function subjectCounts(list) {
+  return SUBJECTS.map(function (s) {
+    return { label: s, n: list.filter(function (L) { return L.subject === s; }).length, chip: SUBJ[s] };
+  }).filter(function (c) { return c.n > 0; });
+}
+
+function renderHeader(animate) {
+  const total = lessons.length;
+  const today = lessons.filter(isTodayLesson);
+  const over = today.filter(function (L) { return overdueDays(L) > 0; }).length;
+  lastCounts = { total: total, today: today.length, over: over };
+  if (animate) {
+    countUp(document.getElementById("statTotal"), total);
+    countUp(document.getElementById("statToday"), today.length);
+    countUp(document.getElementById("statOver"), over);
+  } else {
+    document.getElementById("statTotal").textContent = total;
+    document.getElementById("statToday").textContent = today.length;
+    document.getElementById("statOver").textContent = over;
+  }
+  document.getElementById("todayCnt").textContent = today.length;
+}
+
+function renderToday() {
+  /* Khối tóm tắt lên đầu */
+  const total = lessons.length;
+  const dist = distHTML(subjectCounts(lessons), total, function (c) { return c.chip.bar; });
+  document.getElementById("distSubject").innerHTML = dist;
+  const over = lessons.filter(function (L) { return isTodayLesson(L) && overdueDays(L) > 0; }).length;
+  const dueToday = lessons.filter(function (L) { return isTodayLesson(L) && overdueDays(L) === 0; }).length;
+  const hi = lessons.filter(function (L) { const r = recallNum(L); return r != null && r >= 90; }).length;
+  const lo = lessons.filter(function (L) { const r = recallNum(L); return r != null && r < 70; }).length;
+  document.getElementById("quickSummary").innerHTML =
+    '<div class="sumline"><span>Trễ hạn</span><b style="color:var(--red)">' + over + ' bài</b></div>' +
+    '<div class="sumline"><span>Đến hạn hôm nay</span><b style="color:var(--orange)">' + dueToday + ' bài</b></div>' +
+    '<div class="sumline"><span>Nhớ ≥ 90%</span><b style="color:var(--green)">' + hi + ' bài</b></div>' +
+    '<div class="sumline"><span>Nhớ dưới 70%</span><b style="color:var(--orange)">' + lo + ' bài</b></div>';
+
+  /* Gấp nhất hôm nay */
+  const todayList = lessons.filter(isTodayLesson);
+  const urgentBox = document.getElementById("urgentBox");
+  if (todayList.length) {
+    const sorted = todayList.slice().sort(function (a, b) {
+      return overdueDays(b) - overdueDays(a) || ((recallNum(a) == null ? 999 : recallNum(a)) - (recallNum(b) == null ? 999 : recallNum(b)));
+    });
+    const u = sorted[0];
+    const s = subjStyle(u.subject);
+    urgentBox.innerHTML = '<div class="card urgent" style="margin-bottom:6px;cursor:pointer" onclick="openDetail(' + u.row + ')">' +
+      '<span class="utag">⚠ GẤP NHẤT HÔM NAY</span>' +
+      '<div style="font-weight:700;font-size:17px;line-height:1.35">' + esc(u.topic) + '</div>' +
+      '<div class="row-sub"><span class="subj" style="background:' + s.bg + ';color:' + s.fg + '">' + esc(u.subject) + '</span>' +
+      badgeHTML(u) + '<span class="duetxt">' + dueText(u) + ' · Nhớ ' + esc(u.recall || "—") + '</span></div></div>';
+  } else {
+    urgentBox.innerHTML = '<div class="card" style="margin-bottom:6px"><b>🎉 Hôm nay không có bài nào cần ôn.</b></div>';
+  }
+
+  /* Hàng đợi hôm nay — NHÓM THEO MÔN (group-by-subject) */
+  const groups = {};
+  todayList.forEach(function (L) { (groups[L.subject] = groups[L.subject] || []).push(L); });
+  const groupList = Object.keys(groups).map(function (name) {
+    const items = groups[name].slice().sort(function (a, b) {
+      return overdueDays(b) - overdueDays(a) || ((recallNum(a) == null ? 999 : recallNum(a)) - (recallNum(b) == null ? 999 : recallNum(b)));
+    });
+    return { name: name, items: items, maxOver: Math.max.apply(null, items.map(overdueDays)) };
+  }).sort(function (a, b) { return b.maxOver - a.maxOver; });
+
+  const box = document.getElementById("todayGroups");
+  if (!groupList.length) { box.innerHTML = ""; return; }
+  let idx = 0;
+  box.innerHTML = groupList.map(function (g) {
+    const s = subjStyle(g.name);
+    const nOver = g.items.filter(function (L) { return overdueDays(L) > 0; }).length;
+    const head = '<div class="grouphead"><span class="subj" style="background:' + s.bg + ';color:' + s.fg + ';font-size:14px;padding:5px 14px">' + esc(g.name) + '</span>' +
+      '<span class="gcount">' + g.items.length + ' bài · ' + nOver + ' trễ hạn</span></div>';
+    const rows = '<div class="rows">' + g.items.map(function (L) { return rowHTML(L, idx++); }).join("") + '</div>';
+    return head + rows;
+  }).join("");
+}
+
+function renderAll() {
+  const q = (document.getElementById("searchBox").value || "").trim().toLowerCase();
+  const st = document.getElementById("statusSel").value;
+  const rb = document.getElementById("recallSel").value;
+  const list = lessons.filter(function (L) {
+    if (q && L.topic.toLowerCase().indexOf(q) < 0) return false;
+    if (filterSubj && L.subject !== filterSubj) return false;
+    if (st && L.status !== st) return false;
+    if (rb && recallBand(L) !== rb) return false;
+    return true;
+  });
+  document.getElementById("allCount").textContent = "Hiện " + list.length + " / " + lessons.length + " bài";
+  const box = document.getElementById("allRows");
+  box.innerHTML = list.length ? list.map(function (L, i) { return rowHTML(L, Math.min(i, 12)); }).join("")
+                               : '<div class="empty">Không có bài nào khớp bộ lọc.</div>';
+  animateBars(box);
+}
+
+function renderStats() {
+  const total = lessons.length;
+  document.getElementById("distSubject2").innerHTML =
+    distHTML(subjectCounts(lessons), total, function (c) { return c.chip.bar; });
+  const bands = [
+    { label: "≥ 90%", key: "g1" }, { label: "80 – 90%", key: "g2" }, { label: "70 – 80%", key: "g3" },
+    { label: "50 – 70%", key: "g4" }, { label: "< 50%", key: "g5" }
+  ].map(function (b) {
+    return { label: b.label, key: b.key, n: lessons.filter(function (L) { return recallBand(L) === b.key; }).length };
+  });
+  document.getElementById("distRecall").innerHTML =
+    distHTML(bands, total, function (c) { return bandColor(c.key); });
+  const sts = ["Trễ hạn", "Hôm nay cần ôn", "Chờ đặt lịch"].map(function (s) {
+    return { label: s, n: lessons.filter(function (L) { return L.status === s; }).length };
+  });
+  document.getElementById("distStatus").innerHTML =
+    distHTML(sts, total, function (c) {
+      return c.label === "Trễ hạn" ? "#DC2626" : c.label === "Hôm nay cần ôn" ? "#D97706" : "#94A3B8";
+    });
+  animateBars(document.getElementById("pane-stats"));
+}
+
+function renderAll_Tabs(animate) {
+  renderHeader(animate);
+  renderToday();
+  renderAll();
+  renderStats();
+  animateBars(document.getElementById("pane-today"));
+}
+
+/* ===== Chi tiết bài ===== */
+function openDetail(row) {
+  const L = lessons.filter(function (x) { return x.row === row; })[0];
+  if (!L) return;
+  const s = subjStyle(L.subject);
+  const rc = recallNum(L);
+  const rows = [
+    ["Môn", '<span class="subj" style="background:' + s.bg + ';color:' + s.fg + '">' + esc(L.subject) + '</span>'],
+    ["Trạng thái", esc(L.status) + " · " + dueText(L)],
+    ["% nhớ dự đoán", rc == null ? "—" : '<b style="color:' + bandColor(recallBand(L)) + '">' + rc + '%</b>'],
+    ["Mức độ nhớ gần nhất", esc(L.lastGrade || "—")],
+    ["Nơi viết / Câu hỏi gợi nhớ", esc(L.notebook || "—")],
+    ["Đáp án / Gợi ý", esc(L.answer || "—")],
+    ["Ghi chú lỗi sai", esc(L.mistakes || "—")],
+    ["Ngày học", esc(L.learnedDate || "—")],
+    ["Ôn lần cuối", esc(L.lastReview || "—")],
+    ["Số lần ôn", esc(L.reviewCount || "0")],
+    ["Ngày hẹn ôn", esc(L.dueDate || "—")],
+    ["Ổn định S", esc(L.S || "—")],
+    ["Độ khó D", esc(L.D || "—")],
+    ["Khoảng ôn FSRS", L.interval ? esc(L.interval) + " ngày" : "—"]
+  ];
+  document.getElementById("detailBody").innerHTML =
+    '<h3>' + esc(L.topic) + '</h3>' +
+    '<dl class="kv">' + rows.map(function (r) { return '<dt>' + r[0] + '</dt><dd>' + r[1] + '</dd>'; }).join("") + '</dl>' +
+    '<div style="margin-top:12px;color:var(--muted);font-size:13.5px;font-weight:600">Lịch sử ôn</div>' +
+    '<div class="hist">' + esc(L.history || "Chưa có lịch sử ôn.") + '</div>';
+  document.getElementById("detailOverlay").classList.add("open");
+}
+function closeDetail() { document.getElementById("detailOverlay").classList.remove("open"); }
+document.getElementById("detailClose").addEventListener("click", closeDetail);
+document.getElementById("detailOverlay").addEventListener("click", function (e) { if (e.target === this) closeDetail(); });
+
+/* ===== Tabs ===== */
+function switchTab(name) {
+  document.querySelectorAll(".tabbtn").forEach(function (b) {
+    b.classList.toggle("active", b.getAttribute("data-tab") === name);
+  });
+  document.querySelectorAll(".tabpane").forEach(function (p) {
+    p.classList.toggle("active", p.id === "pane-" + name);
+  });
+  if (name === "stats") animateBars(document.getElementById("pane-stats"));
+  window.scrollTo({ top: 0, behavior: REDUCED ? "auto" : "smooth" });
+}
+document.querySelectorAll(".tabbtn").forEach(function (b) {
+  b.addEventListener("click", function () { switchTab(b.getAttribute("data-tab")); });
+});
+document.getElementById("gotoStats").addEventListener("click", function () { switchTab("stats"); });
+
+/* ===== Bộ lọc ===== */
+const subjChipsBox = document.getElementById("subjChips");
+subjChipsBox.innerHTML = ['<button class="fchip active" type="button" data-s="">Tất cả</button>']
+  .concat(SUBJECTS.map(function (s) { return '<button class="fchip" type="button" data-s="' + s + '">' + s + '</button>'; })).join("");
+subjChipsBox.querySelectorAll(".fchip").forEach(function (ch) {
+  ch.addEventListener("click", function () {
+    subjChipsBox.querySelectorAll(".fchip").forEach(function (x) { x.classList.remove("active"); });
+    ch.classList.add("active");
+    filterSubj = ch.getAttribute("data-s");
+    renderAll();
+  });
+});
+document.getElementById("searchBox").addEventListener("input", renderAll);
+document.getElementById("statusSel").addEventListener("change", renderAll);
+document.getElementById("recallSel").addEventListener("change", renderAll);
+
+/* ===== Firebase Auth (chỉ chủ sở hữu) ===== */
+let fbReady = false;
+try {
+  if (typeof firebase !== "undefined") {
+    firebase.initializeApp(firebaseConfig);
+    firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(function () {});
+    fbReady = true;
+    firebase.auth().onAuthStateChanged(function (user) {
+      const btn = document.getElementById("btnAuth");
+      if (user && (user.email || "").toLowerCase() === OWNER_EMAIL_SR) {
+        btn.textContent = "✓ " + user.email;
+      } else if (user) {
+        firebase.auth().signOut();
+        clearToken();
+        btn.textContent = "Đăng nhập Google";
+        showNotice("Tài khoản " + (user.email || "") + " không phải tài khoản chủ — đã đăng xuất.");
+      } else {
+        btn.textContent = "Đăng nhập Google";
+      }
+    });
+  }
+} catch (e) { fbReady = false; }
+
+async function signIn() {
+  if (!fbReady) { showNotice("Chưa tải được thư viện đăng nhập Google — kiểm tra mạng rồi thử lại."); throw new Error("no-firebase"); }
+  const provider = new firebase.auth.GoogleAuthProvider();
+  provider.addScope("https://www.googleapis.com/auth/spreadsheets");
+  const res = await firebase.auth().signInWithPopup(provider);
+  const email = (res.user && res.user.email || "").toLowerCase();
+  if (email !== OWNER_EMAIL_SR) {
+    await firebase.auth().signOut();
+    clearToken();
+    showNotice("Chỉ tài khoản chủ mới dùng được trang này.");
+    throw new Error("not-owner");
+  }
+  const tok = res.credential && res.credential.accessToken;
+  if (tok) saveToken(tok);
+  hideNotice();
+  return tok;
+}
+document.getElementById("btnAuth").addEventListener("click", async function () {
+  const user = fbReady && firebase.auth().currentUser;
+  if (user && (user.email || "").toLowerCase() === OWNER_EMAIL_SR && getToken()) {
+    if (confirm("Đăng xuất khỏi tài khoản chủ?")) {
+      await firebase.auth().signOut();
+      clearToken();
+      showToast("Đã đăng xuất.");
+    }
+    return;
+  }
+  try { const tok = await signIn(); if (tok) { showToast("Đăng nhập xong — đang tải dữ liệu mới…"); refreshWithToken(tok); } }
+  catch (e) { if (e && e.code !== "auth/popup-closed-by-user") showNotice("Đăng nhập không thành công: " + (e.message || e)); }
+});
+
+/* ===== Đọc Sheet ===== */
+function rowToLesson(row, rowNum) {
+  function g(i) { return row && row[i] != null ? String(row[i]) : ""; }
+  const topic = g(0).trim();
+  if (!topic) return null;
+  return {
+    row: rowNum, topic: topic, subject: g(1), lastGrade: g(2), learnedDate: g(3),
+    lastReview: g(4), reviewCount: g(5), dueDate: g(6), status: g(7),
+    notebook: g(9), mistakes: g(10), answer: g(11), S: g(12), D: g(13),
+    recall: g(14), interval: g(16), history: g(17)
+  };
+}
+async function fetchLessons(token) {
+  const range = encodeURIComponent(SR_TAB + "!A1:R200");
+  const r = await fetch(SHEETS_API + range, { headers: { Authorization: "Bearer " + token } });
+  if (!r.ok) throw new Error("HTTP " + r.status);
+  const j = await r.json();
+  const rows = j.values || [];
+  const out = [];
+  rows.slice(1).forEach(function (row, i) {
+    const L = rowToLesson(row, i + 2);
+    if (L) out.push(L);
+  });
+  return out;
+}
+async function refreshWithToken(token) {
+  try {
+    const data = await fetchLessons(token);
+    if (data.length) {
+      lessons = data;
+      saveCache(data);
+      renderAll_Tabs(true);
+      hideNotice();
+      const si = document.getElementById("syncInfo");
+      si.style.display = "";
+      si.textContent = "Đã đồng bộ " + new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+    }
+  } catch (e) {
+    showNotice("Không đọc được Google Sheet lúc này (" + (e.message || e) + ") — đang hiện dữ liệu đã lưu.");
+    if (String(e.message || "").indexOf("401") >= 0) clearToken();
+  }
+}
+document.getElementById("btnRefresh").addEventListener("click", async function () {
+  let tok = getToken();
+  if (!tok) {
+    try { tok = await signIn(); } catch (e) { return; }
+  }
+  if (tok) { showToast("Đang đọc lại Google Sheet…"); refreshWithToken(tok); }
+});
+
+/* ===== Thêm bài mới → ghi vào tab Bảng ôn tập ===== */
+const addOverlay = document.getElementById("addOverlay");
+function openAdd() {
+  document.getElementById("fError").classList.remove("show");
+  const d = new Date();
+  const iso = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  document.getElementById("fDate").value = iso;
+  addOverlay.classList.add("open");
+}
+function closeAdd() { addOverlay.classList.remove("open"); }
+document.getElementById("btnAdd").addEventListener("click", openAdd);
+document.getElementById("addClose").addEventListener("click", closeAdd);
+addOverlay.addEventListener("click", function (e) { if (e.target === this) closeAdd(); });
+
+function toDMY(iso) {
+  const p = String(iso || "").split("-");
+  return p.length === 3 ? p[2] + "/" + p[1] + "/" + p[0] : "";
+}
+document.getElementById("addForm").addEventListener("submit", async function (ev) {
+  ev.preventDefault();
+  const errBox = document.getElementById("fError");
+  function fail(msg) { errBox.textContent = msg; errBox.classList.add("show"); }
+  errBox.classList.remove("show");
+  const topic = document.getElementById("fTopic").value.trim();
+  if (!topic) { fail("Chưa nhập Chủ đề."); return; }
+  const subject = document.getElementById("fSubject").value;
+  const dateStr = toDMY(document.getElementById("fDate").value);
+  if (!dateStr) { fail("Ngày học chưa hợp lệ."); return; }
+  const notebook = document.getElementById("fNotebook").value.trim();
+  const mistakes = document.getElementById("fMistakes").value.trim();
+  const answer = document.getElementById("fAnswer").value.trim();
+
+  let tok = getToken();
+  if (!tok) {
+    try { tok = await signIn(); } catch (e) { fail("Cần đăng nhập Google bằng tài khoản chủ trước khi thêm bài."); return; }
+  }
+  const btn = document.getElementById("fSubmit");
+  btn.disabled = true; btn.textContent = "Đang lưu…";
+  try {
+    const hdr = { Authorization: "Bearer " + tok, "Content-Type": "application/json" };
+    /* Tìm dòng trống đầu tiên trong tab Bảng ôn tập (cột A, từ dòng 2) */
+    const r = await fetch(SHEETS_API + encodeURIComponent(SR_TAB + "!A2:A200"), { headers: hdr });
+    if (!r.ok) throw new Error("HTTP " + r.status + " khi tìm dòng trống");
+    const j = await r.json();
+    const vals = j.values || [];
+    let rowNum = -1;
+    for (let i = 0; i < 199; i++) {
+      const v = i < vals.length && vals[i] ? vals[i][0] : "";
+      if (!v || !String(v).trim()) { rowNum = i + 2; break; }
+    }
+    if (rowNum < 0) throw new Error("Bảng ôn tập đã đầy 200 dòng.");
+    /* Ghi đúng 6 ô nội dung — KHÔNG ghi cột công thức G/H/O/Q, ô tick I, và KHÔNG đụng tab Hôm nay cần ôn */
+    const data = [
+      { range: SR_TAB + "!A" + rowNum, values: [[topic]] },
+      { range: SR_TAB + "!B" + rowNum, values: [[subject]] },
+      { range: SR_TAB + "!D" + rowNum, values: [[dateStr]] },
+      { range: SR_TAB + "!J" + rowNum, values: [[notebook]] },
+      { range: SR_TAB + "!K" + rowNum, values: [[mistakes]] },
+      { range: SR_TAB + "!L" + rowNum, values: [[answer]] }
+    ];
+    const r2 = await fetch("https://sheets.googleapis.com/v4/spreadsheets/" + SR_SHEET_ID + "/values:batchUpdate", {
+      method: "POST", headers: hdr,
+      body: JSON.stringify({ valueInputOption: "USER_ENTERED", data: data })
+    });
+    if (!r2.ok) {
+      const t = await r2.text();
+      throw new Error("HTTP " + r2.status + " " + t.slice(0, 160));
+    }
+    closeAdd();
+    document.getElementById("addForm").reset();
+    showToast("Đã thêm vào Bảng ôn tập ✔");
+    refreshWithToken(tok);
+  } catch (e) {
+    fail("Không lưu được: " + (e.message || e));
+  } finally {
+    btn.disabled = false; btn.textContent = "Lưu vào Bảng ôn tập";
+  }
+});
+
+/* ===== Khởi động: hiện ngay từ cache/bản chụp, có token thì đọc Sheet ở nền ===== */
+(function init() {
+  const cache = loadCache();
+  lessons = cache ? cache.lessons : SNAPSHOT.slice();
+  renderAll_Tabs(false);
+  const tok = getToken();
+  if (tok) refreshWithToken(tok);
+})();
+</script>
+</body>
+</html>
