@@ -526,7 +526,11 @@ function renderToday() {
       '<div class="row-sub"><span class="subj" style="background:' + s.bg + ';color:' + s.fg + '">' + esc(u.subject) + '</span>' +
       badgeHTML(u) + '<span class="duetxt">' + dueText(u) + ' · Nhớ ' + esc(u.recall || "—") + '</span></div></div>';
   } else {
-    urgentBox.innerHTML = '<div class="card" style="margin-bottom:6px"><b>🎉 Hôm nay không có bài nào cần ôn.</b></div>';
+    if (!lessons.length) {
+      urgentBox.innerHTML = '<div class="card" style="margin-bottom:6px;text-align:center;padding:22px 18px"><div style="font-weight:700;font-size:16.5px;margin-bottom:6px">Chưa có dữ liệu trên máy này</div><div style="color:#5B6B82;font-size:14px;line-height:1.5;margin-bottom:14px">Bảng học nằm trong Google Sheet của bạn nên cần tải về máy này một lần.</div><button type="button" onclick="loadFromSheet()" style="background:#2563eb;color:#fff;border:none;border-radius:12px;padding:13px 20px;font-size:15.5px;font-weight:600;cursor:pointer;width:100%">Tải dữ liệu từ Google Sheet</button></div>';
+    } else {
+      urgentBox.innerHTML = '<div class="card" style="margin-bottom:6px"><b>🎉 Hôm nay không có bài nào cần ôn.</b></div>';
+    }
   }
 
   /* Hàng đợi hôm nay — NHÓM THEO MÔN (group-by-subject) */
@@ -678,6 +682,7 @@ try {
         btn.textContent = "✓ " + user.email;
         try { localStorage.setItem("bh-owner-ok", "1"); } catch (e) {}
         var _g = document.getElementById("gate"); if (_g) _g.style.display = "none";
+        if (!getToken()) showNotice("Đã nhận ra tài khoản chủ — bấm nút Tải dữ liệu từ Google Sheet ở dưới để tải bảng học về máy này.");
       } else if (user) {
         firebase.auth().signOut();
         clearToken();
@@ -763,6 +768,13 @@ async function refreshWithToken(token) {
     showNotice("Không đọc được Google Sheet lúc này (" + (e.message || e) + ") — đang hiện dữ liệu đã lưu.");
     if (String(e.message || "").indexOf("401") >= 0) clearToken();
   }
+}
+async function loadFromSheet() {
+  let tok = getToken();
+  if (!tok) {
+    try { tok = await signIn(); } catch (e) { return; }
+  }
+  if (tok) { showToast("Đang đọc lại Google Sheet…"); refreshWithToken(tok); }
 }
 document.getElementById("btnRefresh").addEventListener("click", async function () {
   let tok = getToken();
