@@ -220,6 +220,16 @@
   .note-text .katex-display{margin:8px 0; overflow-x:auto; overflow-y:hidden; padding:2px 0}
   .note-actions{display:flex; gap:6px}
   .note-actions .btn.small{padding:5px 11px; font-size:12.5px}
+
+  /* Thanh định dạng ghi chú */
+  .ntoolbar{display:flex; flex-wrap:wrap; gap:5px; align-items:center; margin-bottom:8px}
+  .ntbtn{min-width:36px; height:34px; padding:0 9px; border:1px solid var(--line); background:#fff; border-radius:9px; cursor:pointer; font:inherit; font-size:14.5px; color:var(--ink)}
+  .ntbtn:hover{border-color:var(--accent)}
+  .ntcolor{width:26px; height:26px; border-radius:50%; border:2px solid #fff; box-shadow:0 0 0 1px var(--line); cursor:pointer; padding:0}
+  .ntsep{width:1px; height:22px; background:var(--line); margin:0 3px}
+  .notetext.rich{min-height:104px; white-space:pre-wrap}
+  .notetext.rich:empty:before{content:attr(data-placeholder); color:var(--muted); pointer-events:none}
+  .note-text.rich{white-space:normal}
 </style>
 </head>
 <body>
@@ -358,7 +368,8 @@
       <h3>Ghi chú nhanh</h3>
       <p style="color:var(--muted);font-size:13.5px;margin:0 0 10px">Viết gì cũng được — ghi chú lưu vào tab <b>Ghi chú</b> trong Google Sheet của bạn nên không sợ mất, mở Sheet cũng thấy.</p>
       <form id="noteForm">
-        <textarea id="noteInput" class="notetext" rows="4" placeholder="Viết ghi chú… công thức gõ kiểu $x^2 + y^2 = r^2$"></textarea>
+        <div class="ntoolbar" data-for="noteInput" id="noteToolbar"></div>
+        <div id="noteInput" class="notetext rich" contenteditable="true" data-placeholder="Viết ghi chú… công thức gõ kiểu $x^2 + y^2 = r^2$"></div>
         <div class="formerr" id="noteError"></div>
         <button class="btn primary" type="submit" id="noteSave" style="width:100%;justify-content:center;margin-top:8px">Lưu ghi chú</button>
         <p style="color:var(--muted);font-size:12.5px;margin:8px 0 0">Mẹo: công thức viết dạng $...$ (cùng dòng) hoặc $$...$$ (riêng một dòng) — web tự hiện thành công thức đẹp.</p>
@@ -1092,18 +1103,88 @@ function renderNotes() {
   }
   box.innerHTML = notes.map(function (n) {
     if (editingNoteRow === n.row) {
+      const content = isRichNote(n.text) ? sanitizeNoteHtml(n.text) : esc(n.text).replace(/\n/g, "<br>");
       return '<div class="note-card"><div class="note-head"><span class="note-time">🕘 ' + esc(n.time) + '</span></div>' +
-        '<textarea id="noteEditText" class="notetext" rows="4">' + esc(n.text) + '</textarea>' +
+        '<div class="ntoolbar" data-for="noteEditText">' + noteToolbarHTML() + '</div>' +
+        '<div id="noteEditText" class="notetext rich" contenteditable="true">' + content + '</div>' +
         '<div class="note-actions" style="margin-top:9px"><button class="btn primary small" type="button" onclick="saveNoteEdit(' + n.row + ')">Lưu</button>' +
         '<button class="btn small" type="button" onclick="cancelNoteEdit()">Huỷ</button></div></div>';
     }
     return '<div class="note-card"><div class="note-head"><span class="note-time">🕘 ' + esc(n.time) + '</span>' +
       '<span class="note-actions"><button class="btn small" type="button" onclick="editNote(' + n.row + ')">✏️ Sửa</button>' +
       '<button class="btn small" type="button" style="color:var(--red)" onclick="deleteNote(' + n.row + ')">🗑 Xoá</button></span></div>' +
-      '<div class="note-text">' + esc(n.text) + '</div></div>';
+      (isRichNote(n.text)
+        ? '<div class="note-text rich">' + sanitizeNoteHtml(n.text) + '</div></div>'
+        : '<div class="note-text">' + esc(n.text) + '</div></div>');
   }).join("");
   typesetNotes();
 }
+function isRichNote(text) { return /<(b|strong|i|em|u|span|font|div|p)(\s|>|\/)/i.test(text || ""); }
+function sanitizeNoteHtml(html) {
+  const box = document.createElement("div");
+  box.innerHTML = html;
+  const allowed = { B: 1, STRONG: 1, I: 1, EM: 1, U: 1, SPAN: 1, FONT: 1, DIV: 1, P: 1, BR: 1 };
+  (function walk(node) {
+    Array.prototype.slice.call(node.childNodes).forEach(function (ch) {
+      if (ch.nodeType === 3) return;
+      if (ch.nodeType !== 1) { ch.remove(); return; }
+      if (!allowed[ch.tagName]) {
+        while (ch.firstChild) node.insertBefore(ch.firstChild, ch);
+        ch.remove();
+        return;
+      }
+      Array.prototype.slice.call(ch.attributes || []).forEach(function (a) {
+        const keep = (ch.tagName === "SPAN" && a.name === "style") || (ch.tagName === "FONT" && (a.name === "color" || a.name === "size"));
+        if (!keep) ch.removeAttribute(a.name);
+      });
+      if (ch.tagName === "SPAN" && ch.getAttribute("style")) {
+        const color = ch.style.color, fs = ch.style.fontSize;
+        ch.removeAttribute("style");
+        if (color) ch.style.color = color;
+        if (fs) ch.style.fontSize = fs;
+      }
+      walk(ch);
+    });
+  })(box);
+  return box.innerHTML;
+}
+function noteToolbarHTML() {
+  const colors = ["#111827", "#DC2626", "#2563EB", "#15803D", "#D97706", "#7C3AED"];
+  const names = ["Đen", "Đỏ", "Xanh dương", "Xanh lá", "Cam", "Tím"];
+  return '<button type="button" class="ntbtn" data-cmd="bold" title="In đậm"><b>B</b></button>' +
+    '<button type="button" class="ntbtn" data-cmd="italic" title="In nghiêng"><i>I</i></button>' +
+    '<button type="button" class="ntbtn" data-cmd="underline" title="Gạch chân"><u>U</u></button>' +
+    '<span class="ntsep"></span>' +
+    '<button type="button" class="ntbtn" data-size="13" title="Chữ nhỏ" style="font-size:12px">A</button>' +
+    '<button type="button" class="ntbtn" data-size="16" title="Chữ vừa" style="font-size:15px">A</button>' +
+    '<button type="button" class="ntbtn" data-size="20" title="Chữ lớn" style="font-size:19px">A</button>' +
+    '<button type="button" class="ntbtn" data-size="25" title="Chữ rất lớn" style="font-size:23px">A</button>' +
+    '<span class="ntsep"></span>' +
+    colors.map(function (c, i) { return '<button type="button" class="ntcolor" data-color="' + c + '" style="background:' + c + '" title="Màu ' + names[i] + '"></button>'; }).join("") +
+    '<span class="ntsep"></span>' +
+    '<button type="button" class="ntbtn" data-cmd="removeFormat" title="Xoá định dạng">🧹</button>';
+}
+function applyFontSize(editor, px) {
+  document.execCommand("fontSize", false, "7");
+  editor.querySelectorAll("font[size='7']").forEach(function (f) {
+    const sp = document.createElement("span");
+    sp.style.fontSize = px + "px";
+    sp.innerHTML = f.innerHTML;
+    f.replaceWith(sp);
+  });
+}
+document.addEventListener("mousedown", function (e) {
+  const btn = e.target && e.target.closest ? e.target.closest(".ntoolbar button") : null;
+  if (!btn) return;
+  e.preventDefault();
+  const bar = btn.closest(".ntoolbar");
+  const editor = document.getElementById(bar.getAttribute("data-for"));
+  if (!editor) return;
+  editor.focus();
+  if (btn.hasAttribute("data-cmd")) document.execCommand(btn.getAttribute("data-cmd"), false, null);
+  else if (btn.hasAttribute("data-color")) document.execCommand("foreColor", false, btn.getAttribute("data-color"));
+  else if (btn.hasAttribute("data-size")) applyFontSize(editor, +btn.getAttribute("data-size"));
+});
 let mathRetries = 0;
 function typesetNotes() {
   const box = document.getElementById("notesList");
@@ -1130,8 +1211,8 @@ function editNote(row) { editingNoteRow = row; renderNotes(); }
 function cancelNoteEdit() { editingNoteRow = null; renderNotes(); }
 async function saveNoteEdit(row) {
   const ta = document.getElementById("noteEditText");
-  const text = ta.value.trim();
-  if (!text) { alert("Ghi chú đang trống — muốn xoá thì bấm nút Xoá nhé."); return; }
+  if (!ta.textContent.trim()) { alert("Ghi chú đang trống — muốn xoá thì bấm nút Xoá nhé."); return; }
+  const text = sanitizeNoteHtml(ta.innerHTML);
   const tok = await notesToken();
   if (!tok) { alert("Cần đăng nhập Google bằng tài khoản chủ để sửa ghi chú."); return; }
   try {
@@ -1156,8 +1237,8 @@ document.getElementById("noteForm").addEventListener("submit", async function (e
   const errBox = document.getElementById("noteError");
   errBox.classList.remove("show");
   const input = document.getElementById("noteInput");
-  const text = input.value.trim();
-  if (!text) { errBox.textContent = "Chưa viết ghi chú."; errBox.classList.add("show"); return; }
+  if (!input.textContent.trim()) { errBox.textContent = "Chưa viết ghi chú."; errBox.classList.add("show"); return; }
+  const text = sanitizeNoteHtml(input.innerHTML);
   const tok = await notesToken();
   if (!tok) { errBox.textContent = "Cần đăng nhập Google bằng tài khoản chủ để lưu ghi chú."; errBox.classList.add("show"); return; }
   const btn = document.getElementById("noteSave");
@@ -1166,7 +1247,7 @@ document.getElementById("noteForm").addEventListener("submit", async function (e
     const cur = await fetchNotes(tok);
     const newRow = cur.length ? Math.max.apply(null, cur.map(function (n) { return n.row; })) + 1 : 2;
     await writeNoteCells(tok, [{ range: NOTES_TAB + "!A" + newRow + ":B" + newRow, values: [[nowStampVN(), text]] }]);
-    input.value = "";
+    input.innerHTML = "";
     showToast("Đã lưu ghi chú ✔");
     loadNotes(true);
   } catch (e) {
@@ -1428,6 +1509,7 @@ if (_gb) _gb.addEventListener("click", async function () {
 });
 
 (function init() {
+  document.getElementById("noteToolbar").innerHTML = noteToolbarHTML();
   loadNotesCache();
   renderNotes();
   const cache = loadCache();
