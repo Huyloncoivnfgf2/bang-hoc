@@ -7,6 +7,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <style>
@@ -210,10 +213,13 @@
   /* Ghi chú */
   .notetext{width:100%; font:inherit; padding:11px 13px; border-radius:13px; border:1px solid var(--line); background:#fff; outline:none; resize:vertical; line-height:1.55}
   .notetext:focus{border-color:var(--accent)}
-  .note-card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px 14px; box-shadow:var(--shadow)}
-  .note-time{color:var(--muted); font-size:12.5px; font-weight:600}
-  .note-text{white-space:pre-wrap; line-height:1.55; margin-top:3px; word-break:break-word}
-  .note-actions{display:flex; gap:8px; margin-top:9px}
+  .note-card{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px 16px; box-shadow:var(--shadow)}
+  .note-head{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:7px}
+  .note-time{background:var(--bg); border:1px solid var(--line); padding:2px 10px; border-radius:999px; color:var(--muted); font-size:12px; font-weight:600}
+  .note-text{white-space:pre-wrap; line-height:1.65; font-size:15.5px; word-break:break-word}
+  .note-text .katex-display{margin:8px 0; overflow-x:auto; overflow-y:hidden; padding:2px 0}
+  .note-actions{display:flex; gap:6px}
+  .note-actions .btn.small{padding:5px 11px; font-size:12.5px}
 </style>
 </head>
 <body>
@@ -352,9 +358,10 @@
       <h3>Ghi chú nhanh</h3>
       <p style="color:var(--muted);font-size:13.5px;margin:0 0 10px">Viết gì cũng được — ghi chú lưu vào tab <b>Ghi chú</b> trong Google Sheet của bạn nên không sợ mất, mở Sheet cũng thấy.</p>
       <form id="noteForm">
-        <textarea id="noteInput" class="notetext" rows="3" placeholder="Viết ghi chú…"></textarea>
+        <textarea id="noteInput" class="notetext" rows="4" placeholder="Viết ghi chú… công thức gõ kiểu $x^2 + y^2 = r^2$"></textarea>
         <div class="formerr" id="noteError"></div>
         <button class="btn primary" type="submit" id="noteSave" style="width:100%;justify-content:center;margin-top:8px">Lưu ghi chú</button>
+        <p style="color:var(--muted);font-size:12.5px;margin:8px 0 0">Mẹo: công thức viết dạng $...$ (cùng dòng) hoặc $$...$$ (riêng một dòng) — web tự hiện thành công thức đẹp.</p>
       </form>
     </div>
     <div id="notesList" style="display:flex;flex-direction:column;gap:10px;margin-top:14px"></div>
@@ -1085,17 +1092,40 @@ function renderNotes() {
   }
   box.innerHTML = notes.map(function (n) {
     if (editingNoteRow === n.row) {
-      return '<div class="note-card"><div class="note-time">🕘 ' + esc(n.time) + '</div>' +
-        '<textarea id="noteEditText" class="notetext" rows="3" style="margin-top:8px">' + esc(n.text) + '</textarea>' +
-        '<div class="note-actions"><button class="btn primary small" type="button" onclick="saveNoteEdit(' + n.row + ')">Lưu</button>' +
+      return '<div class="note-card"><div class="note-head"><span class="note-time">🕘 ' + esc(n.time) + '</span></div>' +
+        '<textarea id="noteEditText" class="notetext" rows="4">' + esc(n.text) + '</textarea>' +
+        '<div class="note-actions" style="margin-top:9px"><button class="btn primary small" type="button" onclick="saveNoteEdit(' + n.row + ')">Lưu</button>' +
         '<button class="btn small" type="button" onclick="cancelNoteEdit()">Huỷ</button></div></div>';
     }
-    return '<div class="note-card"><div class="note-time">🕘 ' + esc(n.time) + '</div>' +
-      '<div class="note-text">' + esc(n.text) + '</div>' +
-      '<div class="note-actions"><button class="btn small" type="button" onclick="editNote(' + n.row + ')">✏️ Sửa</button>' +
-      '<button class="btn small" type="button" style="color:var(--red)" onclick="deleteNote(' + n.row + ')">🗑 Xoá</button></div></div>';
+    return '<div class="note-card"><div class="note-head"><span class="note-time">🕘 ' + esc(n.time) + '</span>' +
+      '<span class="note-actions"><button class="btn small" type="button" onclick="editNote(' + n.row + ')">✏️ Sửa</button>' +
+      '<button class="btn small" type="button" style="color:var(--red)" onclick="deleteNote(' + n.row + ')">🗑 Xoá</button></span></div>' +
+      '<div class="note-text">' + esc(n.text) + '</div></div>';
   }).join("");
+  typesetNotes();
 }
+let mathRetries = 0;
+function typesetNotes() {
+  const box = document.getElementById("notesList");
+  if (!box) return;
+  if (!window.renderMathInElement) {
+    if (mathRetries < 12) { mathRetries++; setTimeout(typesetNotes, 300); }
+    return;
+  }
+  mathRetries = 0;
+  try {
+    renderMathInElement(box, {
+      delimiters: [
+        { left: "$$", right: "$$", display: true },
+        { left: "$", right: "$", display: false },
+        { left: "\\(", right: "\\)", display: false },
+        { left: "\\[", right: "\\]", display: true }
+      ],
+      throwOnError: false
+    });
+  } catch (e) {}
+}
+document.addEventListener("DOMContentLoaded", function () { typesetNotes(); });
 function editNote(row) { editingNoteRow = row; renderNotes(); }
 function cancelNoteEdit() { editingNoteRow = null; renderNotes(); }
 async function saveNoteEdit(row) {
