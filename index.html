@@ -633,7 +633,13 @@ function saveCache(list) {
 function loadCache() {
   try {
     const c = JSON.parse(localStorage.getItem("sb-cache-v1") || "null");
-    if (c && Array.isArray(c.lessons) && c.lessons.length) return c;
+    if (c && Array.isArray(c.lessons) && c.lessons.length) {
+      c.lessons.forEach(function (L) {
+        if (!Array.isArray(L.images)) L.images = [];
+        if (!Array.isArray(L.files)) L.files = [];
+      });
+      return c;
+    }
   } catch (e) {}
   return null;
 }
@@ -1066,6 +1072,8 @@ async function submitEdit(row) {
 function openDetail(row) {
   const L = lessons.filter(function (x) { return x.row === row; })[0];
   if (!L) return;
+  if (!Array.isArray(L.images)) L.images = [];
+  if (!Array.isArray(L.files)) L.files = [];
   const s = subjStyle(L.subject);
   const rc = recallNum(L);
   const stats = [
@@ -1415,6 +1423,7 @@ async function fetchImgObjectUrl(id) {
   return u;
 }
 function renderPhotos(L) {
+  if (!Array.isArray(L.images)) L.images = [];
   const cnt = document.getElementById("photoCount");
   if (cnt) cnt.textContent = L.images.length;
   const grid = document.getElementById("photoGrid");
@@ -1593,6 +1602,7 @@ async function uploadFiles(L, fileList) {
   }
 }
 function renderFiles(L) {
+  if (!Array.isArray(L.files)) L.files = [];
   const cnt = document.getElementById("fileCount");
   if (cnt) cnt.textContent = L.files.length;
   const box = document.getElementById("fileList");
