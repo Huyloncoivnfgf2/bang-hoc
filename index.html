@@ -233,6 +233,13 @@
   .note-text.rich{white-space:normal}
 
   .note-num{font-weight:800; color:var(--accent); background:#EAF1FE; border-radius:8px; padding:2px 8px; font-size:12.5px}
+
+  /* Bảng trong ghi chú */
+  .tablewrap{overflow-x:auto; margin:8px 0}
+  .tablewrap table{border-collapse:collapse; min-width:520px; font-size:14.5px; line-height:1.5}
+  .note-text th, .note-text td, .notetext th, .notetext td{border:1px solid var(--line); padding:7px 9px; text-align:left; vertical-align:top}
+  .note-text th{background:var(--bg); font-weight:700}
+  .notetext table{border-collapse:collapse}
 </style>
 </head>
 <body>
@@ -378,6 +385,8 @@
         <div class="formerr" id="noteError"></div>
         <div id="noteSaveInfo" style="font-size:13.5px;margin-top:10px">📁 Sẽ lưu vào môn: <b>Chung</b></div>
         <button class="btn primary" type="submit" id="noteSave" style="width:100%;justify-content:center;margin-top:8px">Lưu ghi chú</button>
+        <button class="btn" type="button" style="width:100%;justify-content:center;margin-top:8px" onclick="togglePreview('noteInput','notePreview',this)">👀 Xem trước</button>
+        <div id="notePreview" class="note-card" style="display:none;margin-top:10px"></div>
         <p style="color:var(--muted);font-size:12.5px;margin:8px 0 0">Mẹo: công thức viết dạng $...$ (cùng dòng) hoặc $$...$$ (riêng một dòng) — web tự hiện thành công thức đẹp.</p>
       </form>
     </div>
@@ -1159,24 +1168,26 @@ function renderNotes() {
         '<div class="ntoolbar" data-for="noteEditText">' + noteToolbarHTML() + '</div>' +
         '<div id="noteEditText" class="notetext rich" contenteditable="true">' + content + '</div>' +
         '<div class="note-actions" style="margin-top:9px"><button class="btn primary small" type="button" onclick="saveNoteEdit(' + n.row + ')">Lưu</button>' +
-        '<button class="btn small" type="button" onclick="cancelNoteEdit()">Huỷ</button></div></div>';
+        '<button class="btn small" type="button" onclick="cancelNoteEdit()">Huỷ</button>' +
+        '<button class="btn small" type="button" onclick="togglePreview(\'noteEditText\',\'noteEditPreview\',this)">👀 Xem trước</button></div>' +
+        '<div id="noteEditPreview" class="note-card" style="display:none;margin-top:10px"></div></div>';
     }
     return '<div class="note-card"><div class="note-head"><span style="display:flex;gap:7px;align-items:center"><span class="note-num">#' + num + '</span><span class="note-time">🕘 ' + esc(n.time) + '</span>' + noteSubjChip(n) + '</span>' +
       '<span class="note-actions"><button class="btn small" type="button" onclick="editNote(' + n.row + ')">✏️ Sửa</button>' +
       '<button class="btn small" type="button" style="color:var(--red)" onclick="deleteNote(' + n.row + ')">🗑 Xoá</button></span></div>' +
       (isRichNote(n.text)
-        ? '<div class="note-text rich">' + sanitizeNoteHtml(n.text) + '</div></div>'
+        ? '<div class="note-text rich">' + noteDisplayHtml(n.text) + '</div></div>'
         : '<div class="note-text">' + esc(n.text) + '</div></div>');
   }).join("");
   if (!box.innerHTML) box.innerHTML = '<div class="empty">Không có ghi chú nào trong mục này.</div>';
   wireNoteEditChips();
   typesetNotes();
 }
-function isRichNote(text) { return /<(b|strong|i|em|u|span|font|div|p)(\s|>|\/)/i.test(text || ""); }
+function isRichNote(text) { return /<(b|strong|i|em|u|span|font|div|p|table|thead|tbody|tr|td|th)(\s|>|\/)/i.test(text || ""); }
 function sanitizeNoteHtml(html) {
   const box = document.createElement("div");
   box.innerHTML = html;
-  const allowed = { B: 1, STRONG: 1, I: 1, EM: 1, U: 1, SPAN: 1, FONT: 1, DIV: 1, P: 1, BR: 1 };
+  const allowed = { B: 1, STRONG: 1, I: 1, EM: 1, U: 1, SPAN: 1, FONT: 1, DIV: 1, P: 1, BR: 1, TABLE: 1, THEAD: 1, TBODY: 1, TR: 1, TD: 1, TH: 1 };
   (function walk(node) {
     Array.prototype.slice.call(node.childNodes).forEach(function (ch) {
       if (ch.nodeType === 3) return;
@@ -1187,7 +1198,7 @@ function sanitizeNoteHtml(html) {
         return;
       }
       Array.prototype.slice.call(ch.attributes || []).forEach(function (a) {
-        const keep = (ch.tagName === "SPAN" && a.name === "style") || (ch.tagName === "FONT" && (a.name === "color" || a.name === "size"));
+        const keep = (ch.tagName === "SPAN" && a.name === "style") || (ch.tagName === "FONT" && (a.name === "color" || a.name === "size")) || ((ch.tagName === "TD" || ch.tagName === "TH") && (a.name === "colspan" || a.name === "rowspan"));
         if (!keep) ch.removeAttribute(a.name);
       });
       if (ch.tagName === "SPAN" && ch.getAttribute("style")) {
@@ -1238,17 +1249,15 @@ document.addEventListener("mousedown", function (e) {
   else if (btn.hasAttribute("data-color")) document.execCommand("foreColor", false, btn.getAttribute("data-color"));
   else if (btn.hasAttribute("data-size")) applyFontSize(editor, +btn.getAttribute("data-size"));
 });
-let mathRetries = 0;
-function typesetNotes() {
-  const box = document.getElementById("notesList");
-  if (!box) return;
-  if (!window.renderMathInElement) {
-    if (mathRetries < 12) { mathRetries++; setTimeout(typesetNotes, 300); }
-    return;
-  }
-  mathRetries = 0;
+function noteDisplayHtml(raw) {
+  let h = sanitizeNoteHtml(raw);
+  h = h.replace(/<table/g, '<div class="tablewrap"><table').replace(/<\/table>/g, '</table></div>');
+  return h;
+}
+function typesetEl(el) {
+  if (!el || !window.renderMathInElement) return;
   try {
-    renderMathInElement(box, {
+    renderMathInElement(el, {
       delimiters: [
         { left: "$$", right: "$$", display: true },
         { left: "$", right: "$", display: false },
@@ -1258,6 +1267,40 @@ function typesetNotes() {
       throwOnError: false
     });
   } catch (e) {}
+}
+function togglePreview(editorId, previewId, btn) {
+  const ed = document.getElementById(editorId);
+  const pv = document.getElementById(previewId);
+  if (!ed || !pv) return;
+  if (pv.style.display !== "none" && pv.innerHTML) {
+    pv.style.display = "none";
+    btn.textContent = "👀 Xem trước";
+    return;
+  }
+  pv.innerHTML = '<div class="note-text rich">' + noteDisplayHtml(ed.innerHTML) + '</div>';
+  pv.style.display = "";
+  btn.textContent = "🙈 Ẩn xem trước";
+  typesetEl(pv);
+  if (!window.renderMathInElement) setTimeout(function () { typesetEl(pv); }, 700);
+}
+document.addEventListener("paste", function (e) {
+  const ed = e.target && e.target.closest ? e.target.closest(".notetext.rich") : null;
+  if (!ed) return;
+  const html = e.clipboardData ? e.clipboardData.getData("text/html") : "";
+  if (!html) return;
+  e.preventDefault();
+  document.execCommand("insertHTML", false, sanitizeNoteHtml(html));
+});
+let mathRetries = 0;
+function typesetNotes() {
+  const box = document.getElementById("notesList");
+  if (!box) return;
+  if (!window.renderMathInElement) {
+    if (mathRetries < 12) { mathRetries++; setTimeout(typesetNotes, 300); }
+    return;
+  }
+  mathRetries = 0;
+  typesetEl(box);
 }
 document.addEventListener("DOMContentLoaded", function () { typesetNotes(); });
 function editNote(row) {
