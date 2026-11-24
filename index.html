@@ -371,15 +371,17 @@
       <h3>Ghi chú nhanh</h3>
       <p style="color:var(--muted);font-size:13.5px;margin:0 0 10px">Viết gì cũng được — ghi chú lưu vào tab <b>Ghi chú</b> trong Google Sheet của bạn nên không sợ mất, mở Sheet cũng thấy.</p>
       <form id="noteForm">
+        <div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px">Môn của ghi chú:</div>
         <div class="chips" id="noteSubjChips" style="margin-bottom:10px"></div>
         <div class="ntoolbar" data-for="noteInput" id="noteToolbar"></div>
         <div id="noteInput" class="notetext rich" contenteditable="true" data-placeholder="Viết ghi chú… công thức gõ kiểu $x^2 + y^2 = r^2$"></div>
         <div class="formerr" id="noteError"></div>
+        <div id="noteSaveInfo" style="font-size:13.5px;margin-top:10px">📁 Sẽ lưu vào môn: <b>Chung</b></div>
         <button class="btn primary" type="submit" id="noteSave" style="width:100%;justify-content:center;margin-top:8px">Lưu ghi chú</button>
         <p style="color:var(--muted);font-size:12.5px;margin:8px 0 0">Mẹo: công thức viết dạng $...$ (cùng dòng) hoặc $$...$$ (riêng một dòng) — web tự hiện thành công thức đẹp.</p>
       </form>
     </div>
-    <div class="chips" id="noteFilterChips" style="margin-top:14px"></div>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:14px"><span style="font-size:13px;color:var(--muted);font-weight:600;flex:none">Lọc theo môn:</span><div class="chips" id="noteFilterChips"></div></div>
     <div id="notesList" style="display:flex;flex-direction:column;gap:10px;margin-top:10px"></div>
   </section>
 </div>
@@ -1112,6 +1114,15 @@ function buildSubjChips(box, current, onPick, withAll) {
     ch.addEventListener("click", function () { onPick(ch.getAttribute("data-v")); });
   });
 }
+function updateNoteSaveInfo() {
+  const el = document.getElementById("noteSaveInfo");
+  if (el) el.innerHTML = '📁 Sẽ lưu vào môn: <b>' + esc(noteSubject || "Chung") + '</b>';
+}
+function pickNoteSubject(v) {
+  noteSubject = v;
+  buildSubjChips(document.getElementById("noteSubjChips"), noteSubject, pickNoteSubject, false);
+  updateNoteSaveInfo();
+}
 function renderNoteFilterChips() {
   buildSubjChips(document.getElementById("noteFilterChips"), "", function (v) {
     noteFilter = v === "__ALL__" ? null : v;
@@ -1299,7 +1310,7 @@ document.getElementById("noteForm").addEventListener("submit", async function (e
     await writeNoteCells(tok, [{ range: NOTES_TAB + "!A" + newRow + ":C" + newRow, values: [[nowStampVN(), text, noteSubject]] }]);
     input.innerHTML = "";
     noteSubject = "";
-    buildSubjChips(document.getElementById("noteSubjChips"), noteSubject, function (v) { noteSubject = v; buildSubjChips(document.getElementById("noteSubjChips"), noteSubject, arguments.callee); }, false);
+    pickNoteSubject("");
     showToast("Đã lưu ghi chú ✔");
     loadNotes(true);
   } catch (e) {
@@ -1319,7 +1330,7 @@ function switchTab(name) {
     p.classList.toggle("active", p.id === "pane-" + name);
   });
   if (name === "stats") animateBars(document.getElementById("pane-stats"));
-  if (name === "notes") loadNotes(false);
+  if (name === "notes") loadNotes(!!getToken());
   window.scrollTo({ top: 0, behavior: REDUCED ? "auto" : "smooth" });
 }
 document.querySelectorAll(".tabbtn").forEach(function (b) {
@@ -1592,10 +1603,7 @@ if (_gb) _gb.addEventListener("click", async function () {
 
 (function init() {
   document.getElementById("noteToolbar").innerHTML = noteToolbarHTML();
-  buildSubjChips(document.getElementById("noteSubjChips"), noteSubject, function (v) {
-    noteSubject = v;
-    buildSubjChips(document.getElementById("noteSubjChips"), noteSubject, arguments.callee, false);
-  }, false);
+  pickNoteSubject(noteSubject);
   renderNoteFilterChips();
   loadNotesCache();
   renderNotes();
