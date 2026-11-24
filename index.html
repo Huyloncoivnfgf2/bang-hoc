@@ -468,9 +468,7 @@
     <div id="fileSub" style="color:var(--muted);font-size:13px;margin-bottom:10px"></div>
     <div id="fileBody" style="overflow:auto;max-height:68vh;text-align:center"></div>
     <div class="pdfnav">
-      <button class="btn small" id="filePrev" type="button">‹ Trang trước</button>
       <span id="filePageInfo" style="font-weight:600;font-size:14px"></span>
-      <button class="btn small" id="fileNext" type="button">Trang sau ›</button>
       <button class="btn small" id="fileZoomOut" type="button">− Thu nhỏ</button>
       <button class="btn small" id="fileZoomIn" type="button">＋ Phóng to</button>
     </div>
@@ -1696,7 +1694,7 @@ async function openFile(L, idx) {
       const blob = await fetchFileBlob(f.id);
       fileView.xopp = await parseXoppData(new Uint8Array(await blob.arrayBuffer()));
     }
-    await renderFilePage();
+    await renderAllPages();
   } catch (e) {
     const body = document.getElementById("fileBody");
     body.innerHTML = '<div style="color:var(--red);padding:24px 10px 8px">Chưa mở xem được file này trên web (' + esc(e.message || String(e)) + ').</div>' +
@@ -1722,32 +1720,57 @@ function fileTotalPages() {
   if (fileView.xopp) return fileView.xopp.pages.length;
   return 0;
 }
-async function renderFilePage() {
-  if (!fileView) return;
+async function renderAllPages() {
+  const fv = fileView;
+  if (!fv) return;
   const total = fileTotalPages();
-  fileView.page = Math.min(Math.max(1, fileView.page), Math.max(1, total));
-  document.getElementById("filePageInfo").textContent = total ? ("Trang " + fileView.page + " / " + total) : "";
-  document.getElementById("filePrev").disabled = fileView.page <= 1;
-  document.getElementById("fileNext").disabled = fileView.page >= total;
   const body = document.getElementById("fileBody");
+  document.getElementById("filePageInfo").textContent = total ? (total + " trang — cuộn xuống để xem tiếp") : "";
+  body.innerHTML = "";
   body.scrollTop = 0;
-  if (fileView.pdfDoc) {
-    const page = await fileView.pdfDoc.getPage(fileView.page);
-    const viewport = page.getViewport({ scale: fileView.scale });
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
-    const canvas = document.createElement("canvas");
-    canvas.className = "pdfcanvas";
-    canvas.width = Math.round(viewport.width * dpr);
-    canvas.height = Math.round(viewport.height * dpr);
-    canvas.style.width = Math.round(viewport.width) + "px";
-    body.innerHTML = "";
-    body.appendChild(canvas);
-    const ctx = canvas.getContext("2d");
-    ctx.scale(dpr, dpr);
-    await page.render({ canvasContext: ctx, viewport: viewport }).promise;
-  } else if (fileView.xopp) {
-    await renderXoppPage(body, fileView);
+  const status = document.createElement("div");
+  status.style.cssText = "color:var(--muted);font-size:13px;padding:6px 0";
+  body.appendChild(status);
+  for (let i = 1; i <= total; i++) {
+    if (fileView !== fv) return;
+    status.textContent = "⏳ Đang dựng trang " + i + " / " + total + "…";
+    const label = document.createElement("div");
+    label.style.cssText = "font-weight:700;font-size:13px;color:var(--muted);margin:16px 0 6px";
+    label.textContent = "— Trang " + i + " —";
+    body.appendChild(label);
+    try {
+      if (fv.pdfDoc) await appendPdfPage(body, fv, i);
+      else if (fv.xopp) await appendXoppPage(body, fv, i);
+    } catch (e) {
+      const err = document.createElement("div");
+      err.style.cssText = "color:var(--red);font-size:13.5px;padding:8px 0";
+      err.textContent = "Trang " + i + " chưa dựng được.";
+      body.appendChild(err);
+    }
   }
+  if (fileView !== fv) return;
+  status.remove();
+  if (fv.xopp && fv.bgMissing && !fv.bgFound) {
+    const note = document.createElement("div");
+    note.style.cssText = "background:#FFF7E6;border:1px solid #F3DFAE;color:#7A5410;border-radius:12px;padding:10px 13px;font-size:13.5px;margin-bottom:6px;text-align:left";
+    note.textContent = "⚠ File này được viết trên nền PDF “" + fv.bgMissing + "” nhưng bài này chưa có file PDF đó, nên hiện chỉ xem được nét viết tay. Bạn đăng kèm file PDF đó vào bài này (mục 📎 File bài làm) rồi mở lại là xem được đầy đủ.";
+    body.insertBefore(note, body.firstChild);
+  }
+}
+async function appendPdfPage(body, fv, i) {
+  const page = await fv.pdfDoc.getPage(i);
+  const viewport = page.getViewport({ scale: fv.scale });
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const canvas = document.createElement("canvas");
+  canvas.className = "pdfcanvas";
+  canvas.width = Math.round(viewport.width * dpr);
+  canvas.height = Math.round(viewport.height * dpr);
+  canvas.style.width = Math.round(viewport.width) + "px";
+  canvas.style.marginBottom = "6px";
+  body.appendChild(canvas);
+  const ctx = canvas.getContext("2d");
+  ctx.scale(dpr, dpr);
+  await page.render({ canvasContext: ctx, viewport: viewport }).promise;
 }
 
 /* ===== Đọc file .xopp: bung nén, lấy nét viết + chữ từng trang ===== */
@@ -1778,7 +1801,7 @@ function parseXopp(xmlText, zip) {
       bgPdf: null, bgPage: 1, els: []
     };
     if (bg && bg.getAttribute("type") === "pdf") {
-      page.bgPdf = (bg.getAttribute("filename") || "").split(/[\\/]/).pop().toLowerCase();
+      page.bgPdf = (bg.getAttribute("filename") || "").split(/[\\/]/).pop().normalize("NFC").toLowerCase();
       page.bgPage = parseInt(bg.getAttribute("pageno") || "1", 10) || 1;
     }
     pg.querySelectorAll("layer > *").forEach(function (el) {
@@ -1801,9 +1824,9 @@ function xoppColor(c) {
   }
   return c;
 }
-async function renderXoppPage(body, fv) {
-  const page = fv.xopp.pages[fv.page - 1];
-  if (!page) { body.innerHTML = '<div style="color:var(--muted);padding:30px 0">Trang này trống.</div>'; return; }
+async function appendXoppPage(body, fv, pageIndex) {
+  const page = fv.xopp.pages[pageIndex - 1];
+  if (!page) { const d = document.createElement("div"); d.style.cssText = "color:var(--muted);padding:20px 0"; d.textContent = "Trang này trống."; body.appendChild(d); return; }
   const containerW = Math.min(body.clientWidth || 800, 860);
   const scale = (containerW / page.w) * (fv.scale / 1.4);
   const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -1812,7 +1835,7 @@ async function renderXoppPage(body, fv) {
   canvas.width = Math.round(page.w * scale * dpr);
   canvas.height = Math.round(page.h * scale * dpr);
   canvas.style.width = Math.round(page.w * scale) + "px";
-  body.innerHTML = "";
+  canvas.style.marginBottom = "6px";
   body.appendChild(canvas);
   const ctx = canvas.getContext("2d");
   ctx.fillStyle = "#FFFFFF";
@@ -1823,7 +1846,11 @@ async function renderXoppPage(body, fv) {
     try {
       await loadPdfJs();
       let doc = null;
-      const match = fv.L.files.filter(function (x) { return x.t === "pdf" && x.n.toLowerCase() === page.bgPdf; })[0];
+      let match = fv.L.files.filter(function (x) { return x.t === "pdf" && x.n.normalize("NFC").toLowerCase() === page.bgPdf; })[0];
+      if (!match) {
+        const pdfs = fv.L.files.filter(function (x) { return x.t === "pdf"; });
+        if (pdfs.length === 1) match = pdfs[0];
+      }
       const key = match ? match.id : ("zip:" + page.bgPdf);
       if (fv.bgDocs[key]) doc = fv.bgDocs[key];
       else if (match) {
@@ -1832,7 +1859,7 @@ async function renderXoppPage(body, fv) {
         fv.bgDocs[key] = doc;
       } else if (fv.xopp.zip) {
         const names = Object.keys(fv.xopp.zip.files);
-        const entryName = names.filter(function (n) { return n.split("/").pop().toLowerCase() === page.bgPdf; })[0];
+        const entryName = names.filter(function (n) { return n.split("/").pop().normalize("NFC").toLowerCase() === page.bgPdf; })[0];
         if (entryName) {
           const data = await fv.xopp.zip.file(entryName).async("uint8array");
           doc = await window.pdfjsLib.getDocument({ data: data }).promise;
@@ -1849,8 +1876,11 @@ async function renderXoppPage(body, fv) {
         off.height = Math.round(vp.height * oscale);
         await p.render({ canvasContext: off.getContext("2d"), viewport: p.getViewport({ scale: oscale }) }).promise;
         ctx.drawImage(off, 0, 0, page.w, page.h);
+        fv.bgFound = true;
+      } else {
+        fv.bgMissing = fv.bgMissing || page.bgPdf;
       }
-    } catch (e) {}
+    } catch (e) { fv.bgMissing = fv.bgMissing || page.bgPdf; }
   }
   /* Nét viết + chữ đánh máy */
   page.els.forEach(function (el) {
@@ -2331,10 +2361,8 @@ if (_gb) _gb.addEventListener("click", async function () {
   pickNoteSubject(noteSubject);
   document.getElementById("fileClose").addEventListener("click", closeFile);
   document.getElementById("fileOverlay").addEventListener("click", function (e) { if (e.target === this) closeFile(); });
-  document.getElementById("filePrev").addEventListener("click", function () { if (fileView && fileView.page > 1) { fileView.page--; renderFilePage(); } });
-  document.getElementById("fileNext").addEventListener("click", function () { if (fileView && fileView.page < fileTotalPages()) { fileView.page++; renderFilePage(); } });
-  document.getElementById("fileZoomIn").addEventListener("click", function () { if (fileView) { fileView.scale = Math.min(3, fileView.scale + 0.3); renderFilePage(); } });
-  document.getElementById("fileZoomOut").addEventListener("click", function () { if (fileView) { fileView.scale = Math.max(0.7, fileView.scale - 0.3); renderFilePage(); } });
+  document.getElementById("fileZoomIn").addEventListener("click", function () { if (fileView) { fileView.scale = Math.min(3, fileView.scale + 0.3); renderAllPages(); } });
+  document.getElementById("fileZoomOut").addEventListener("click", function () { if (fileView) { fileView.scale = Math.max(0.7, fileView.scale - 0.3); renderAllPages(); } });
   document.getElementById("imgClose").addEventListener("click", closeImg);
   document.getElementById("imgOverlay").addEventListener("click", function (e) { if (e.target === this) closeImg(); });
   document.getElementById("imgDelete").addEventListener("click", deleteCurrentImg);
