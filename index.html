@@ -248,6 +248,27 @@
   .mathcell{white-space:pre-wrap; line-height:1.65; word-break:break-word}
   .mathcell .katex-display{margin:6px 0; overflow-x:auto; overflow-y:hidden; padding:2px 0}
   .addform textarea{font-size:15px; line-height:1.6; padding:10px 12px}
+
+  /* ===== Chi tiết bài: khung rộng, thẻ thông số, mục nội dung riêng ===== */
+  #detailOverlay .modal{max-width:940px; padding:26px 30px}
+  #detailOverlay h3{font-size:21px; margin:0 36px 6px 0}
+  .d-sub{display:flex; align-items:center; gap:10px; flex-wrap:wrap; color:var(--muted); font-size:14px; font-weight:600}
+  .d-meta{display:grid; grid-template-columns:repeat(auto-fit,minmax(128px,1fr)); gap:10px; margin-top:16px}
+  .d-stat{background:var(--gray-soft); border:1px solid var(--line); border-radius:14px; padding:10px 12px}
+  .d-stat .lb{font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--muted)}
+  .d-stat .vl{font-size:16px; font-weight:700; margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .d-sec{margin-top:20px}
+  .d-sec h4{margin:0 0 8px; font-size:13px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:#33507E}
+  .d-sec .dbody{background:#FBFCFE; border:1px solid var(--line); border-left:4px solid var(--accent); border-radius:12px; padding:14px 18px; font-size:16px; line-height:1.75}
+  .d-sec.answer .dbody{border-left-color:#15803D; background:#F7FBF8}
+  .d-sec.mistakes .dbody{border-left-color:#D97706; background:#FFFBF2}
+  .detail-actions{display:flex; gap:10px; margin-top:22px}
+  .detail-actions .btn{flex:1; justify-content:center; margin-top:0 !important}
+  @media(max-width:640px){
+    #detailOverlay .modal{padding:20px 16px}
+    .detail-actions{flex-direction:column}
+    .d-sec .dbody{font-size:15px; padding:12px 14px}
+  }
 </style>
 </head>
 <body>
@@ -984,28 +1005,34 @@ function openDetail(row) {
   if (!L) return;
   const s = subjStyle(L.subject);
   const rc = recallNum(L);
-  const rows = [
-    ["Môn", '<span class="subj" style="background:' + s.bg + ';color:' + s.fg + '">' + esc(L.subject) + '</span>'],
-    ["Trạng thái", esc(L.status) + " · " + dueText(L)],
-    ["% nhớ dự đoán", rc == null ? "—" : '<b style="color:' + bandColor(recallBand(L)) + '">' + rc + '%</b>'],
-    ["Mức độ nhớ gần nhất", esc(L.lastGrade || "—")],
-    ["Nơi viết / Câu hỏi gợi nhớ", '<span class="mathcell">' + esc(L.notebook || "—") + '</span>'],
-    ["Đáp án / Gợi ý", '<span class="mathcell">' + esc(L.answer || "—") + '</span>'],
-    ["Ghi chú lỗi sai", '<span class="mathcell">' + esc(L.mistakes || "—") + '</span>'],
+  const stats = [
+    ["Trạng thái", esc(L.status)],
+    ["Hẹn ôn", esc(dueText(L))],
+    ["% nhớ dự đoán", rc == null ? "—" : '<span style="color:' + bandColor(recallBand(L)) + '">' + rc + '%</span>'],
+    ["Mức nhớ gần nhất", esc(L.lastGrade || "—")],
+    ["Số lần ôn", esc(L.reviewCount || "0")],
     ["Ngày học", esc(L.learnedDate || "—")],
     ["Ôn lần cuối", esc(L.lastReview || "—")],
-    ["Số lần ôn", esc(L.reviewCount || "0")],
     ["Ngày hẹn ôn", esc(L.dueDate || "—")],
+    ["Khoảng ôn FSRS", L.interval ? esc(L.interval) + " ngày" : "—"],
     ["Ổn định S", esc(L.S || "—")],
-    ["Độ khó D", esc(L.D || "—")],
-    ["Khoảng ôn FSRS", L.interval ? esc(L.interval) + " ngày" : "—"]
+    ["Độ khó D", esc(L.D || "—")]
   ];
+  function sec(cls, title, val) {
+    return '<div class="d-sec ' + cls + '"><h4>' + title + '</h4><div class="dbody"><span class="mathcell">' + esc(val || "—") + '</span></div></div>';
+  }
   document.getElementById("detailBody").innerHTML =
     '<h3>' + esc(L.topic) + '</h3>' +
-    '<div id="viewBox"><dl class="kv">' + rows.map(function (r) { return '<dt>' + r[0] + '</dt><dd>' + r[1] + '</dd>'; }).join("") + '</dl>' +
-    '<div style="margin-top:12px;color:var(--muted);font-size:13.5px;font-weight:600">Lịch sử ôn</div>' +
-    '<div class="hist">' + esc(L.history || "Chưa có lịch sử ôn.") + '</div></div>' +
-    '<button class="btn" id="btnEdit" type="button" style="width:100%;justify-content:center;margin-top:14px">✏️ Sửa thông tin bài</button>' +
+    '<div class="d-sub"><span class="subj" style="background:' + s.bg + ';color:' + s.fg + '">' + esc(L.subject) + '</span><span>' + esc(L.status) + ' · ' + esc(dueText(L)) + '</span></div>' +
+    '<div id="viewBox"><div class="d-meta">' + stats.map(function (r) { return '<div class="d-stat"><div class="lb">' + r[0] + '</div><div class="vl">' + r[1] + '</div></div>'; }).join("") + '</div>' +
+    sec("", "📍 Nơi viết / Câu hỏi gợi nhớ", L.notebook) +
+    sec("answer", "💡 Đáp án / Gợi ý", L.answer) +
+    sec("mistakes", "⚠️ Ghi chú lỗi sai", L.mistakes) +
+    '<div class="d-sec"><h4>🕘 Lịch sử ôn</h4><div class="hist" style="margin-top:0">' + esc(L.history || "Chưa có lịch sử ôn.") + '</div></div></div>' +
+    '<div class="reviewbox detail-actions">' +
+      '<button class="btn" id="btnEdit" type="button">✏️ Sửa thông tin bài</button>' +
+      '<button class="btn primary" id="btnReviewed" type="button">✓ Đã ôn bài này</button>' +
+    '</div>' +
     '<div id="editBox" style="display:none;margin-top:14px"><form class="addform" id="editForm">' +
       '<label>Chủ đề *<input id="eTopic" type="text" required></label>' +
       '<label>Môn<select id="eSubject">' + (SUBJECTS.indexOf(L.subject) >= 0 ? SUBJECTS : SUBJECTS.concat([L.subject])).map(function (x) { return '<option' + (x === L.subject ? ' selected' : '') + '>' + esc(x) + '</option>'; }).join("") + '</select></label>' +
@@ -1019,9 +1046,7 @@ function openDetail(row) {
     '</form>' +
       '<button class="btn" id="ePreviewBtn" type="button" style="width:100%;justify-content:center;margin-top:8px">👀 Xem trước lỗi sai & đáp án</button>' +
       '<div id="ePreview" class="note-card" style="display:none;margin-top:10px"></div></div>' +
-    '<div class="reviewbox">' +
-      '<button class="btn primary" id="btnReviewed" type="button" style="width:100%;justify-content:center">✓ Đã ôn bài này</button>' +
-    '</div>';
+    '';
   document.getElementById("ePreviewBtn").addEventListener("click", function () {
     toggleLessonPreview("ePreview", document.getElementById("eMistakes").value, document.getElementById("eAnswer").value, this, "👀 Xem trước lỗi sai & đáp án");
   });
