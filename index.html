@@ -358,7 +358,7 @@
         <div id="distSubject"></div>
       </div>
       <div class="card">
-        <h3>Tóm tắt nhanh</h3>
+        <h3>Mức nhớ theo môn</h3>
         <div id="quickSummary"></div>
         <button class="linklike" id="gotoStats" type="button">Xem thống kê đầy đủ →</button>
       </div>
@@ -711,15 +711,20 @@ function renderToday() {
   const total = lessons.length;
   const dist = distHTML(subjectCounts(lessons), total, function (c) { return c.chip.bar; });
   document.getElementById("distSubject").innerHTML = dist;
-  const over = lessons.filter(function (L) { return isTodayLesson(L) && overdueDays(L) > 0; }).length;
-  const dueToday = lessons.filter(function (L) { return isTodayLesson(L) && overdueDays(L) === 0; }).length;
-  const hi = lessons.filter(function (L) { const r = recallNum(L); return r != null && r >= 90; }).length;
-  const lo = lessons.filter(function (L) { const r = recallNum(L); return r != null && r < 70; }).length;
-  document.getElementById("quickSummary").innerHTML =
-    '<div class="sumline"><span>Trễ hạn</span><b style="color:var(--red)">' + over + ' bài</b></div>' +
-    '<div class="sumline"><span>Đến hạn hôm nay</span><b style="color:var(--orange)">' + dueToday + ' bài</b></div>' +
-    '<div class="sumline"><span>Nhớ ≥ 90%</span><b style="color:var(--green)">' + hi + ' bài</b></div>' +
-    '<div class="sumline"><span>Nhớ dưới 70%</span><b style="color:var(--orange)">' + lo + ' bài</b></div>';
+  document.getElementById("quickSummary").innerHTML = SUBJECTS.map(function (name) {
+    const st = subjStyle(name);
+    const chip = '<span class="subj" style="background:' + st.bg + ';color:' + st.fg + ';min-width:64px;justify-content:center">' + esc(name) + '</span>';
+    const vals = lessons.filter(function (L) { return L.subject === name; }).map(recallNum).filter(function (v) { return v != null; });
+    if (!vals.length) {
+      return '<div class="dist-row">' + chip + '<span class="bar"><i style="background:#CBD5E1;width:0%"></i></span><span class="num" style="color:var(--muted);min-width:52px">—</span></div>';
+    }
+    const avg = Math.round(vals.reduce(function (a, b) { return a + b; }, 0) / vals.length);
+    const band = avg >= 90 ? "g1" : avg >= 80 ? "g2" : avg >= 70 ? "g3" : avg >= 50 ? "g4" : "g5";
+    const col = bandColor(band);
+    return '<div class="dist-row">' + chip +
+      '<span class="bar"><i style="background:' + col + ';width:' + avg + '%"></i></span>' +
+      '<span class="num" style="color:' + col + ';min-width:52px">' + avg + '%</span></div>';
+  }).join("");
 
   /* Gấp nhất hôm nay */
   const todayList = lessons.filter(isTodayLesson);
