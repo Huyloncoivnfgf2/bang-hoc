@@ -1345,6 +1345,23 @@ function typesetWhenReady(el, tries) {
 const DRIVE_API = "https://www.googleapis.com/drive/v3/files";
 const DRIVE_UPLOAD = "https://www.googleapis.com/upload/drive/v3/files";
 function thumbUrl(id, sz) { return "https://drive.google.com/thumbnail?id=" + id + "&sz=w" + (sz || 400); }
+const imgBlobCache = {};
+async function fetchImgObjectUrl(id) {
+  if (imgBlobCache[id]) return imgBlobCache[id];
+  let tok = await tokenOrSilent();
+  if (!tok) throw new Error("no-token");
+  let r = await fetch(DRIVE_API + "/" + id + "?alt=media", { headers: { Authorization: "Bearer " + tok } });
+  if (r.status === 401 || r.status === 403) {
+    clearToken();
+    tok = await gisSilentToken();
+    if (tok) r = await fetch(DRIVE_API + "/" + id + "?alt=media", { headers: { Authorization: "Bearer " + tok } });
+  }
+  if (!r.ok) throw new Error("img-" + r.status);
+  const b = await r.blob();
+  const u = URL.createObjectURL(b);
+  imgBlobCache[id] = u;
+  return u;
+}
 function renderPhotos(L) {
   const cnt = document.getElementById("photoCount");
   if (cnt) cnt.textContent = L.images.length;
@@ -1355,10 +1372,21 @@ function renderPhotos(L) {
     return;
   }
   grid.innerHTML = L.images.map(function (id, i) {
-    return '<button type="button" class="ph" data-i="' + i + '"><img loading="lazy" src="' + thumbUrl(id) + '" alt="Ảnh ' + (i + 1) + '"></button>';
+    return '<button type="button" class="ph" data-i="' + i + '"><span class="phload">⏳</span><img alt="Ảnh ' + (i + 1) + '" style="display:none"></button>';
   }).join("");
   grid.querySelectorAll(".ph").forEach(function (b) {
-    b.addEventListener("click", function () { openImg(L, Number(b.getAttribute("data-i"))); });
+    const i = Number(b.getAttribute("data-i"));
+    const id = L.images[i];
+    b.addEventListener("click", function () { openImg(L, i); });
+    fetchImgObjectUrl(id).then(function (u) {
+      const img = b.querySelector("img");
+      const ld = b.querySelector(".phload");
+      if (ld) ld.remove();
+      img.src = u; img.style.display = "";
+    }).catch(function () {
+      const ld = b.querySelector(".phload");
+      if (ld) ld.textContent = "🔐";
+    });
   });
 }
 async function ensurePhotoFolder(tok) {
@@ -1456,9 +1484,23 @@ function openImg(L, idx) {
   if (!id) return;
   currentImg = { lesson: L, id: id };
   document.getElementById("imgTitle").textContent = "Ảnh " + (idx + 1) + "/" + L.images.length + " — " + L.topic;
-  document.getElementById("imgFrameWrap").innerHTML = '<iframe src="https://drive.google.com/file/d/' + id + '/preview" style="width:100%;height:65vh;border:0;border-radius:12px;background:#111" allow="autoplay" allowfullscreen></iframe>';
-  document.getElementById("imgDownload").href = "https://drive.google.com/uc?export=download&id=" + id;
+  const wrap = document.getElementById("imgFrameWrap");
+  wrap.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px 0">⏳ Đang tải ảnh…</div>';
+  const dl = document.getElementById("imgDownload");
+  dl.removeAttribute("href");
   document.getElementById("imgOverlay").classList.add("open");
+  fetchImgObjectUrl(id).then(function (u) {
+    if (!currentImg || currentImg.id !== id) return;
+    wrap.innerHTML = '<img src="' + u + '" alt="Ảnh tài liệu" style="max-width:100%;max-height:72vh;display:block;margin:0 auto;border-radius:12px">';
+    dl.href = u;
+    dl.setAttribute("download", L.topic + ".jpg");
+  }).catch(function () {
+    if (!currentImg || currentImg.id !== id) return;
+    wrap.innerHTML = '<div style="text-align:center;padding:34px 10px"><div style="font-size:15px;margin-bottom:12px">Web cần đăng nhập Google để tải ảnh này.</div><button class="btn primary" id="imgSignIn" type="button" style="justify-content:center">Đăng nhập Google</button></div>';
+    document.getElementById("imgSignIn").addEventListener("click", async function () {
+      try { await signIn(); openImg(L, idx); } catch (e) { showToast("Đăng nhập chưa thành công."); }
+    });
+  });
 }
 function closeImg() {
   document.getElementById("imgOverlay").classList.remove("open");
