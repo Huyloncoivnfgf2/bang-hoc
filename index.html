@@ -371,6 +371,7 @@
       <h3>Ghi chú nhanh</h3>
       <p style="color:var(--muted);font-size:13.5px;margin:0 0 10px">Viết gì cũng được — ghi chú lưu vào tab <b>Ghi chú</b> trong Google Sheet của bạn nên không sợ mất, mở Sheet cũng thấy.</p>
       <form id="noteForm">
+        <div class="chips" id="noteSubjChips" style="margin-bottom:10px"></div>
         <div class="ntoolbar" data-for="noteInput" id="noteToolbar"></div>
         <div id="noteInput" class="notetext rich" contenteditable="true" data-placeholder="Viết ghi chú… công thức gõ kiểu $x^2 + y^2 = r^2$"></div>
         <div class="formerr" id="noteError"></div>
@@ -378,7 +379,8 @@
         <p style="color:var(--muted);font-size:12.5px;margin:8px 0 0">Mẹo: công thức viết dạng $...$ (cùng dòng) hoặc $$...$$ (riêng một dòng) — web tự hiện thành công thức đẹp.</p>
       </form>
     </div>
-    <div id="notesList" style="display:flex;flex-direction:column;gap:10px;margin-top:14px"></div>
+    <div class="chips" id="noteFilterChips" style="margin-top:14px"></div>
+    <div id="notesList" style="display:flex;flex-direction:column;gap:10px;margin-top:10px"></div>
   </section>
 </div>
 
@@ -1060,13 +1062,13 @@ function nowStampVN() {
   return g.day + "/" + g.month + "/" + g.year + " " + g.hour + ":" + g.minute;
 }
 async function fetchNotes(token) {
-  const r = await fetch(SHEETS_API + encodeURIComponent(NOTES_TAB + "!A2:B200"), { headers: { Authorization: "Bearer " + token } });
+  const r = await fetch(SHEETS_API + encodeURIComponent(NOTES_TAB + "!A2:C200"), { headers: { Authorization: "Bearer " + token } });
   if (!r.ok) throw new Error("HTTP " + r.status);
   const j = await r.json();
   const out = [];
   (j.values || []).forEach(function (row, i) {
     const text = row[1] == null ? "" : String(row[1]);
-    if (text.trim()) out.push({ row: i + 2, time: row[0] == null ? "" : String(row[0]), text: text });
+    if (text.trim()) out.push({ row: i + 2, time: row[0] == null ? "" : String(row[0]), text: text, subject: row[2] == null ? "" : String(row[2]).trim() });
   });
   out.reverse();
   return out;
@@ -1095,6 +1097,38 @@ async function writeNoteCells(token, data) {
   });
   if (!r.ok) { const t = await r.text(); throw new Error("HTTP " + r.status + " " + t.slice(0, 140)); }
 }
+let noteSubject = "";
+let noteFilter = null;
+let editingNoteSubject = "";
+function buildSubjChips(box, current, onPick, withAll) {
+  if (!box) return;
+  let opts = withAll ? [{ v: "__ALL__", label: "Tất cả" }] : [];
+  opts = opts.concat([{ v: "", label: "Chung" }]).concat(SUBJECTS.map(function (x) { return { v: x, label: x }; }));
+  box.innerHTML = opts.map(function (o) {
+    const active = withAll ? ((noteFilter === null && o.v === "__ALL__") || noteFilter === o.v) : (o.v === current);
+    return '<button class="fchip' + (active ? ' active' : '') + '" type="button" data-v="' + esc(o.v) + '">' + o.label + '</button>';
+  }).join("");
+  box.querySelectorAll(".fchip").forEach(function (ch) {
+    ch.addEventListener("click", function () { onPick(ch.getAttribute("data-v")); });
+  });
+}
+function renderNoteFilterChips() {
+  buildSubjChips(document.getElementById("noteFilterChips"), "", function (v) {
+    noteFilter = v === "__ALL__" ? null : v;
+    renderNoteFilterChips();
+    renderNotes();
+  }, true);
+}
+function noteSubjChip(n) {
+  const sname = (n.subject || "").trim();
+  const st = subjStyle(sname);
+  return '<span class="subj" style="background:' + st.bg + ';color:' + st.fg + '">' + esc(sname || "Chung") + '</span>';
+}
+function wireNoteEditChips() {
+  const ec = document.getElementById("noteEditChips");
+  if (ec) buildSubjChips(ec, editingNoteSubject, function (v) { editingNoteSubject = v; wireNoteEditChips(); }, false);
+}
+
 function renderNotes() {
   const box = document.getElementById("notesList");
   if (!box) return;
@@ -1106,21 +1140,25 @@ function renderNotes() {
   }
   box.innerHTML = notes.map(function (n, idx) {
     const num = notes.length - idx;
+    if (noteFilter !== null && (n.subject || "") !== noteFilter) return "";
     if (editingNoteRow === n.row) {
       const content = isRichNote(n.text) ? sanitizeNoteHtml(n.text) : esc(n.text).replace(/\n/g, "<br>");
-      return '<div class="note-card"><div class="note-head"><span style="display:flex;gap:7px;align-items:center"><span class="note-num">#' + num + '</span><span class="note-time">🕘 ' + esc(n.time) + '</span></span></div>' +
+      return '<div class="note-card"><div class="note-head"><span style="display:flex;gap:7px;align-items:center"><span class="note-num">#' + num + '</span><span class="note-time">🕘 ' + esc(n.time) + '</span>' + noteSubjChip(n) + '</span></div>' +
+        '<div class="chips" id="noteEditChips" style="margin-bottom:8px"></div>' +
         '<div class="ntoolbar" data-for="noteEditText">' + noteToolbarHTML() + '</div>' +
         '<div id="noteEditText" class="notetext rich" contenteditable="true">' + content + '</div>' +
         '<div class="note-actions" style="margin-top:9px"><button class="btn primary small" type="button" onclick="saveNoteEdit(' + n.row + ')">Lưu</button>' +
         '<button class="btn small" type="button" onclick="cancelNoteEdit()">Huỷ</button></div></div>';
     }
-    return '<div class="note-card"><div class="note-head"><span style="display:flex;gap:7px;align-items:center"><span class="note-num">#' + num + '</span><span class="note-time">🕘 ' + esc(n.time) + '</span></span>' +
+    return '<div class="note-card"><div class="note-head"><span style="display:flex;gap:7px;align-items:center"><span class="note-num">#' + num + '</span><span class="note-time">🕘 ' + esc(n.time) + '</span>' + noteSubjChip(n) + '</span>' +
       '<span class="note-actions"><button class="btn small" type="button" onclick="editNote(' + n.row + ')">✏️ Sửa</button>' +
       '<button class="btn small" type="button" style="color:var(--red)" onclick="deleteNote(' + n.row + ')">🗑 Xoá</button></span></div>' +
       (isRichNote(n.text)
         ? '<div class="note-text rich">' + sanitizeNoteHtml(n.text) + '</div></div>'
         : '<div class="note-text">' + esc(n.text) + '</div></div>');
   }).join("");
+  if (!box.innerHTML) box.innerHTML = '<div class="empty">Không có ghi chú nào trong mục này.</div>';
+  wireNoteEditChips();
   typesetNotes();
 }
 function isRichNote(text) { return /<(b|strong|i|em|u|span|font|div|p)(\s|>|\/)/i.test(text || ""); }
@@ -1211,7 +1249,12 @@ function typesetNotes() {
   } catch (e) {}
 }
 document.addEventListener("DOMContentLoaded", function () { typesetNotes(); });
-function editNote(row) { editingNoteRow = row; renderNotes(); }
+function editNote(row) {
+  editingNoteRow = row;
+  const found = notes.find(function (n) { return n.row === row; });
+  editingNoteSubject = found ? (found.subject || "") : "";
+  renderNotes();
+}
 function cancelNoteEdit() { editingNoteRow = null; renderNotes(); }
 async function saveNoteEdit(row) {
   const ta = document.getElementById("noteEditText");
@@ -1220,7 +1263,10 @@ async function saveNoteEdit(row) {
   const tok = await notesToken();
   if (!tok) { alert("Cần đăng nhập Google bằng tài khoản chủ để sửa ghi chú."); return; }
   try {
-    await writeNoteCells(tok, [{ range: NOTES_TAB + "!B" + row, values: [[text]] }]);
+    await writeNoteCells(tok, [
+      { range: NOTES_TAB + "!B" + row, values: [[text]] },
+      { range: NOTES_TAB + "!C" + row, values: [[editingNoteSubject]] }
+    ]);
     editingNoteRow = null;
     showToast("Đã sửa ghi chú ✔");
     loadNotes(true);
@@ -1231,7 +1277,7 @@ async function deleteNote(row) {
   const tok = await notesToken();
   if (!tok) { alert("Cần đăng nhập Google bằng tài khoản chủ để xoá ghi chú."); return; }
   try {
-    await writeNoteCells(tok, [{ range: NOTES_TAB + "!A" + row + ":B" + row, values: [["", ""]] }]);
+    await writeNoteCells(tok, [{ range: NOTES_TAB + "!A" + row + ":C" + row, values: [["", "", ""]] }]);
     showToast("Đã xoá ghi chú");
     loadNotes(true);
   } catch (e) { alert("Chưa xoá được: " + (e.message || e)); }
@@ -1250,8 +1296,10 @@ document.getElementById("noteForm").addEventListener("submit", async function (e
   try {
     const cur = await fetchNotes(tok);
     const newRow = cur.length ? Math.max.apply(null, cur.map(function (n) { return n.row; })) + 1 : 2;
-    await writeNoteCells(tok, [{ range: NOTES_TAB + "!A" + newRow + ":B" + newRow, values: [[nowStampVN(), text]] }]);
+    await writeNoteCells(tok, [{ range: NOTES_TAB + "!A" + newRow + ":C" + newRow, values: [[nowStampVN(), text, noteSubject]] }]);
     input.innerHTML = "";
+    noteSubject = "";
+    buildSubjChips(document.getElementById("noteSubjChips"), noteSubject, function (v) { noteSubject = v; buildSubjChips(document.getElementById("noteSubjChips"), noteSubject, arguments.callee); }, false);
     showToast("Đã lưu ghi chú ✔");
     loadNotes(true);
   } catch (e) {
@@ -1544,6 +1592,11 @@ if (_gb) _gb.addEventListener("click", async function () {
 
 (function init() {
   document.getElementById("noteToolbar").innerHTML = noteToolbarHTML();
+  buildSubjChips(document.getElementById("noteSubjChips"), noteSubject, function (v) {
+    noteSubject = v;
+    buildSubjChips(document.getElementById("noteSubjChips"), noteSubject, arguments.callee, false);
+  }, false);
+  renderNoteFilterChips();
   loadNotesCache();
   renderNotes();
   const cache = loadCache();
