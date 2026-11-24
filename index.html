@@ -1300,7 +1300,9 @@ function typesetNotes() {
     return;
   }
   mathRetries = 0;
-  typesetEl(box);
+  /* Chỉ hiện công thức ở phần HIỂN THỊ (.note-text) — tuyệt đối không chạy trong khung soạn thảo,
+     nếu không mã nguồn trong khung sửa sẽ bị biến thành bản đã hiện rồi nhân đôi chữ khi lưu */
+  box.querySelectorAll(".note-text").forEach(function (el) { typesetEl(el); });
 }
 document.addEventListener("DOMContentLoaded", function () { typesetNotes(); });
 function editNote(row) {
