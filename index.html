@@ -240,6 +240,9 @@
   .note-text th, .note-text td, .notetext th, .notetext td{border:1px solid var(--line); padding:7px 9px; text-align:left; vertical-align:top}
   .note-text th{background:var(--bg); font-weight:700}
   .notetext table{border-collapse:collapse}
+
+  .note-text ul, .note-text ol{margin:6px 0; padding-left:22px}
+  .note-text li{margin:2px 0}
 </style>
 </head>
 <body>
@@ -1183,11 +1186,11 @@ function renderNotes() {
   wireNoteEditChips();
   typesetNotes();
 }
-function isRichNote(text) { return /<(b|strong|i|em|u|span|font|div|p|table|thead|tbody|tr|td|th)(\s|>|\/)/i.test(text || ""); }
+function isRichNote(text) { return /<(b|strong|i|em|u|span|font|div|p|table|thead|tbody|tr|td|th|ul|ol|li)(\s|>|\/)/i.test(text || ""); }
 function sanitizeNoteHtml(html) {
   const box = document.createElement("div");
   box.innerHTML = html;
-  const allowed = { B: 1, STRONG: 1, I: 1, EM: 1, U: 1, SPAN: 1, FONT: 1, DIV: 1, P: 1, BR: 1, TABLE: 1, THEAD: 1, TBODY: 1, TR: 1, TD: 1, TH: 1 };
+  const allowed = { B: 1, STRONG: 1, I: 1, EM: 1, U: 1, SPAN: 1, FONT: 1, DIV: 1, P: 1, BR: 1, TABLE: 1, THEAD: 1, TBODY: 1, TR: 1, TD: 1, TH: 1, UL: 1, OL: 1, LI: 1 };
   (function walk(node) {
     Array.prototype.slice.call(node.childNodes).forEach(function (ch) {
       if (ch.nodeType === 3) return;
