@@ -1651,10 +1651,12 @@ let fileView = null;
 function loadScriptOnce(src, test) {
   return new Promise(function (resolve, reject) {
     if (test()) { resolve(); return; }
+    let done = false;
     const sc = document.createElement("script");
     sc.src = src;
-    sc.onload = function () { resolve(); };
-    sc.onerror = function () { reject(new Error("load-lib")); };
+    sc.onload = function () { if (!done) { done = true; resolve(); } };
+    sc.onerror = function () { if (!done) { done = true; reject(new Error("load-lib")); } };
+    setTimeout(function () { if (!done) { done = true; reject(new Error("load-timeout")); } }, 12000);
     document.head.appendChild(sc);
   });
 }
@@ -1679,7 +1681,7 @@ async function fetchFileBlob(id) {
 async function openFile(L, idx) {
   const f = L.files[idx];
   if (!f) return;
-  fileView = { L: L, f: f, page: 1, scale: 1.4, pdfDoc: null, xopp: null, bgDocs: {} };
+  fileView = { L: L, f: f, idx: idx, page: 1, scale: 1.4, pdfDoc: null, xopp: null, bgDocs: {} };
   document.getElementById("fileTitle").textContent = f.n;
   document.getElementById("fileSub").textContent = f.t === "xopp" ? "File Xournal++ — bản xem trước nét viết ngay trên web" : "File PDF — xem ngay trên web";
   document.getElementById("fileBody").innerHTML = '<div style="color:var(--muted);padding:40px 0">⏳ Đang tải file…</div>';
@@ -1696,7 +1698,16 @@ async function openFile(L, idx) {
     }
     await renderFilePage();
   } catch (e) {
-    document.getElementById("fileBody").innerHTML = '<div style="color:var(--red);padding:30px 10px">Chưa mở xem được file này trên web (' + esc(e.message || String(e)) + '). Bạn bấm nút ⬇ Tải ở danh sách file để mở bằng ứng dụng trên máy nhé.</div>';
+    const body = document.getElementById("fileBody");
+    body.innerHTML = '<div style="color:var(--red);padding:24px 10px 8px">Chưa mở xem được file này trên web (' + esc(e.message || String(e)) + ').</div>' +
+      '<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;padding:0 10px 24px">' +
+      '<button class="btn primary" id="fileRetry" type="button">🔁 Thử lại</button>' +
+      '<button class="btn" id="fileSignIn" type="button">🔑 Đăng nhập Google rồi xem</button></div>' +
+      '<div style="color:var(--muted);font-size:13px;padding:0 10px 24px">Hoặc bấm nút ⬇ Tải ở danh sách file để mở bằng ứng dụng trên máy.</div>';
+    document.getElementById("fileRetry").addEventListener("click", function () { openFile(fileView.L, fileView.idx); });
+    document.getElementById("fileSignIn").addEventListener("click", async function () {
+      try { await signIn(); openFile(fileView.L, fileView.idx); } catch (err) { showToast("Đăng nhập chưa thành công."); }
+    });
   }
 }
 function closeFile() {
