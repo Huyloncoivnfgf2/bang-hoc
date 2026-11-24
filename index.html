@@ -269,6 +269,11 @@
     .detail-actions{flex-direction:column}
     .d-sec .dbody{font-size:15px; padding:12px 14px}
   }
+
+  /* ===== Ảnh tài liệu trong chi tiết bài ===== */
+  .photogrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(104px,1fr)); gap:10px}
+  .photogrid .ph{padding:0; border:1px solid var(--line); border-radius:12px; overflow:hidden; background:#EEF2F7; cursor:pointer; aspect-ratio:4/3}
+  .photogrid .ph img{width:100%; height:100%; object-fit:cover; display:block}
 </style>
 </head>
 <body>
@@ -429,6 +434,19 @@
   <div class="modal modalwrap" role="dialog" aria-modal="true">
     <button class="xbtn" id="detailClose" type="button" aria-label="Đóng">✕</button>
     <div id="detailBody"></div>
+  </div>
+</div>
+
+<!-- ===== XEM ẢNH LỚN ===== -->
+<div class="overlay" id="imgOverlay" style="z-index:75">
+  <div class="modal modalwrap" role="dialog" aria-modal="true" style="max-width:860px">
+    <button class="xbtn" id="imgClose" type="button" aria-label="Đóng">✕</button>
+    <h3 id="imgTitle" style="margin:0 36px 10px 0;font-size:16px">Ảnh tài liệu</h3>
+    <div id="imgFrameWrap"></div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <a class="btn" id="imgDownload" href="#" target="_blank" rel="noopener" style="flex:1;justify-content:center;text-decoration:none">⬇️ Tải xuống</a>
+      <button class="btn" id="imgDelete" type="button" style="flex:1;justify-content:center;color:var(--red)">🗑 Xoá ảnh này</button>
+    </div>
   </div>
 </div>
 
@@ -1028,6 +1046,9 @@ function openDetail(row) {
     sec("", "📍 Nơi viết / Câu hỏi gợi nhớ", L.notebook) +
     sec("answer", "💡 Đáp án / Gợi ý", L.answer) +
     sec("mistakes", "⚠️ Ghi chú lỗi sai", L.mistakes) +
+    '<div class="d-sec"><h4>🖼️ Ảnh tài liệu (<span id="photoCount">0</span>)</h4><div class="photogrid" id="photoGrid"></div>' +
+    '<button class="btn" id="btnAddPhoto" type="button" style="width:100%;justify-content:center;margin-top:10px">📷 Thêm ảnh — chụp hoặc chọn từ máy</button>' +
+    '<input type="file" id="photoInput" accept="image/*" multiple hidden></div>' +
     '<div class="d-sec"><h4>🕘 Lịch sử ôn</h4><div class="hist" style="margin-top:0">' + esc(L.history || "Chưa có lịch sử ôn.") + '</div></div></div>' +
     '<div class="reviewbox detail-actions">' +
       '<button class="btn" id="btnEdit" type="button">✏️ Sửa thông tin bài</button>' +
@@ -1047,6 +1068,9 @@ function openDetail(row) {
       '<button class="btn" id="ePreviewBtn" type="button" style="width:100%;justify-content:center;margin-top:8px">👀 Xem trước lỗi sai & đáp án</button>' +
       '<div id="ePreview" class="note-card" style="display:none;margin-top:10px"></div></div>' +
     '';
+  renderPhotos(L);
+  document.getElementById("btnAddPhoto").addEventListener("click", function () { document.getElementById("photoInput").click(); });
+  document.getElementById("photoInput").addEventListener("change", function () { uploadPhotos(L, this.files); this.value = ""; });
   document.getElementById("ePreviewBtn").addEventListener("click", function () {
     toggleLessonPreview("ePreview", document.getElementById("eMistakes").value, document.getElementById("eAnswer").value, this, "👀 Xem trước lỗi sai & đáp án");
   });
@@ -1317,6 +1341,146 @@ function typesetWhenReady(el, tries) {
   if (window.renderMathInElement) { typesetEl(el); return; }
   if ((tries || 0) < 12) setTimeout(function () { typesetWhenReady(el, (tries || 0) + 1); }, 300);
 }
+/* ===== Ảnh tài liệu: lưu trên Google Drive của chủ, mã file ghi ở cột S ===== */
+const DRIVE_API = "https://www.googleapis.com/drive/v3/files";
+const DRIVE_UPLOAD = "https://www.googleapis.com/upload/drive/v3/files";
+function thumbUrl(id, sz) { return "https://drive.google.com/thumbnail?id=" + id + "&sz=w" + (sz || 400); }
+function renderPhotos(L) {
+  const cnt = document.getElementById("photoCount");
+  if (cnt) cnt.textContent = L.images.length;
+  const grid = document.getElementById("photoGrid");
+  if (!grid) return;
+  if (!L.images.length) {
+    grid.innerHTML = '<div style="font-size:14px;color:var(--muted)">Chưa có ảnh nào. Chụp trang sách/vở của bài này đăng lên, đi học ở đâu mở web ra là xem lại được ngay.</div>';
+    return;
+  }
+  grid.innerHTML = L.images.map(function (id, i) {
+    return '<button type="button" class="ph" data-i="' + i + '"><img loading="lazy" src="' + thumbUrl(id) + '" alt="Ảnh ' + (i + 1) + '"></button>';
+  }).join("");
+  grid.querySelectorAll(".ph").forEach(function (b) {
+    b.addEventListener("click", function () { openImg(L, Number(b.getAttribute("data-i"))); });
+  });
+}
+async function ensurePhotoFolder(tok) {
+  try { const saved = localStorage.getItem("sb-drive-folder"); if (saved) return saved; } catch (e) {}
+  const q = encodeURIComponent("name='BangHoc-Anh' and mimeType='application/vnd.google-apps.folder' and trashed=false");
+  const r = await fetch(DRIVE_API + "?q=" + q + "&fields=files(id,name)", { headers: { Authorization: "Bearer " + tok } });
+  if (r.ok) {
+    const j = await r.json();
+    if (j.files && j.files.length) { try { localStorage.setItem("sb-drive-folder", j.files[0].id); } catch (e) {} return j.files[0].id; }
+  }
+  const r2 = await fetch(DRIVE_API, { method: "POST", headers: { Authorization: "Bearer " + tok, "Content-Type": "application/json" }, body: JSON.stringify({ name: "BangHoc-Anh", mimeType: "application/vnd.google-apps.folder" }) });
+  if (!r2.ok) throw new Error("drive-folder-" + r2.status);
+  const j2 = await r2.json();
+  try { localStorage.setItem("sb-drive-folder", j2.id); } catch (e) {}
+  return j2.id;
+}
+function compressImage(file) {
+  return new Promise(function (resolve, reject) {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = function () {
+      URL.revokeObjectURL(url);
+      const max = 1600;
+      let w = img.naturalWidth, h = img.naturalHeight;
+      const sc = Math.min(1, max / Math.max(w, h));
+      w = Math.max(1, Math.round(w * sc)); h = Math.max(1, Math.round(h * sc));
+      const c = document.createElement("canvas");
+      c.width = w; c.height = h;
+      c.getContext("2d").drawImage(img, 0, 0, w, h);
+      c.toBlob(function (b) { if (b) resolve(b); else reject(new Error("compress")); }, "image/jpeg", 0.85);
+    };
+    img.onerror = function () { URL.revokeObjectURL(url); reject(new Error("img-load")); };
+    img.src = url;
+  });
+}
+async function uploadOnePhoto(tok, folderId, blob, name) {
+  const boundary = "-------banghocphoto271828";
+  const meta = JSON.stringify({ name: name, parents: [folderId] });
+  const head = "--" + boundary + "\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n" + meta + "\r\n" +
+    "--" + boundary + "\r\nContent-Type: image/jpeg\r\n\r\n";
+  const body = new Blob([head, blob, "\r\n--" + boundary + "--"], { type: "multipart/related; boundary=" + boundary });
+  const r = await fetch(DRIVE_UPLOAD + "?uploadType=multipart&fields=id", { method: "POST", headers: { Authorization: "Bearer " + tok }, body: body });
+  if (!r.ok) throw new Error("drive-upload-" + r.status);
+  const j = await r.json();
+  return j.id;
+}
+async function savePhotoIds(L) {
+  const tok = await tokenOrSilent();
+  if (!tok) throw new Error("no-token");
+  const range = SR_TAB + "!S" + L.row;
+  const r = await fetch(SHEETS_API + encodeURIComponent(range) + "?valueInputOption=USER_ENTERED", {
+    method: "PUT",
+    headers: { Authorization: "Bearer " + tok, "Content-Type": "application/json" },
+    body: JSON.stringify({ range: range, majorDimension: "ROWS", values: [[L.images.join(",")]] })
+  });
+  if (!r.ok) throw new Error("sheet-save-" + r.status);
+}
+async function uploadPhotos(L, fileList) {
+  const files = Array.prototype.slice.call(fileList || []);
+  if (!files.length) return;
+  const btn = document.getElementById("btnAddPhoto");
+  const oldLabel = btn ? btn.textContent : "";
+  if (btn) { btn.disabled = true; }
+  try {
+    let tok = await tokenOrSilent();
+    if (!tok) { showToast("Cần đăng nhập Google để thêm ảnh — bấm nút Đăng nhập ở đầu trang rồi thử lại."); return; }
+    let folderId;
+    try { folderId = await ensurePhotoFolder(tok); }
+    catch (e) {
+      clearToken();
+      tok = await signIn();
+      folderId = await ensurePhotoFolder(tok);
+    }
+    let done = 0;
+    for (const f of files) {
+      if (btn) btn.textContent = "⏳ Đang tải ảnh " + (done + 1) + "/" + files.length + "…";
+      const blob = await compressImage(f);
+      const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+      const id = await uploadOnePhoto(tok, folderId, blob, L.topic + " - " + stamp + ".jpg");
+      L.images.push(id);
+      done++;
+      renderPhotos(L);
+    }
+    await savePhotoIds(L);
+    showToast("Đã thêm " + done + " ảnh vào bài này 📷");
+  } catch (e) {
+    showToast("Chưa thêm được ảnh: " + (e.message || e));
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = oldLabel; }
+  }
+}
+let currentImg = null;
+function openImg(L, idx) {
+  const id = L.images[idx];
+  if (!id) return;
+  currentImg = { lesson: L, id: id };
+  document.getElementById("imgTitle").textContent = "Ảnh " + (idx + 1) + "/" + L.images.length + " — " + L.topic;
+  document.getElementById("imgFrameWrap").innerHTML = '<iframe src="https://drive.google.com/file/d/' + id + '/preview" style="width:100%;height:65vh;border:0;border-radius:12px;background:#111" allow="autoplay" allowfullscreen></iframe>';
+  document.getElementById("imgDownload").href = "https://drive.google.com/uc?export=download&id=" + id;
+  document.getElementById("imgOverlay").classList.add("open");
+}
+function closeImg() {
+  document.getElementById("imgOverlay").classList.remove("open");
+  document.getElementById("imgFrameWrap").innerHTML = "";
+  currentImg = null;
+}
+async function deleteCurrentImg() {
+  if (!currentImg) return;
+  if (!confirm("Xoá ảnh này khỏi bài? Ảnh cũng sẽ bị xoá khỏi Google Drive.")) return;
+  const L = currentImg.lesson, id = currentImg.id;
+  const old = L.images.slice();
+  L.images = L.images.filter(function (x) { return x !== id; });
+  try { await savePhotoIds(L); }
+  catch (e) { L.images = old; showToast("Chưa xoá được: " + (e.message || e)); return; }
+  try {
+    const tok = await tokenOrSilent();
+    if (tok) await fetch(DRIVE_API + "/" + id, { method: "DELETE", headers: { Authorization: "Bearer " + tok } });
+  } catch (e) {}
+  closeImg();
+  renderPhotos(L);
+  showToast("Đã xoá ảnh.");
+}
 function toggleLessonPreview(pvId, mistakes, answer, btn, label) {
   const pv = document.getElementById(pvId);
   if (!pv) return;
@@ -1489,6 +1653,7 @@ async function signIn() {
   if (!fbReady) { showNotice("Chưa tải được thư viện đăng nhập Google — kiểm tra mạng rồi thử lại."); throw new Error("no-firebase"); }
   const provider = new firebase.auth.GoogleAuthProvider();
   provider.addScope("https://www.googleapis.com/auth/spreadsheets");
+  provider.addScope("https://www.googleapis.com/auth/drive.file");
   const res = await firebase.auth().signInWithPopup(provider);
   const email = (res.user && res.user.email || "").toLowerCase();
   if (email !== OWNER_EMAIL_SR) {
@@ -1516,7 +1681,7 @@ function gisSilentToken() {
       if (!window.google || !google.accounts || !google.accounts.oauth2) { finish(null); return; }
       const client = google.accounts.oauth2.initTokenClient({
         client_id: GIS_CLIENT_ID,
-        scope: "https://www.googleapis.com/auth/spreadsheets",
+        scope: "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file",
         callback: function (resp) {
           if (resp && resp.access_token) { saveToken(resp.access_token); finish(resp.access_token); }
           else finish(null);
@@ -1556,11 +1721,12 @@ function rowToLesson(row, rowNum) {
     row: rowNum, topic: topic, subject: g(1), lastGrade: g(2), learnedDate: g(3),
     lastReview: g(4), reviewCount: g(5), dueDate: g(6), status: g(7),
     notebook: g(9), mistakes: g(10), answer: g(11), S: g(12), D: g(13),
-    recall: g(14), interval: g(16), history: g(17)
+    recall: g(14), interval: g(16), history: g(17),
+    images: g(18) ? g(18).split(",").map(function (x) { return x.trim(); }).filter(Boolean) : []
   };
 }
 async function fetchLessons(token) {
-  const range = encodeURIComponent(SR_TAB + "!A1:R200");
+  const range = encodeURIComponent(SR_TAB + "!A1:S200");
   const r = await fetch(SHEETS_API + range, { headers: { Authorization: "Bearer " + token } });
   if (!r.ok) throw new Error("HTTP " + r.status);
   const j = await r.json();
@@ -1709,6 +1875,9 @@ if (_gb) _gb.addEventListener("click", async function () {
 (function init() {
   document.getElementById("noteToolbar").innerHTML = noteToolbarHTML();
   pickNoteSubject(noteSubject);
+  document.getElementById("imgClose").addEventListener("click", closeImg);
+  document.getElementById("imgOverlay").addEventListener("click", function (e) { if (e.target === this) closeImg(); });
+  document.getElementById("imgDelete").addEventListener("click", deleteCurrentImg);
   document.getElementById("fPreviewBtn").addEventListener("click", function () {
     toggleLessonPreview("fPreview", document.getElementById("fMistakes").value, document.getElementById("fAnswer").value, this, "👀 Xem trước lỗi sai & đáp án");
   });
