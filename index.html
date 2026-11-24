@@ -243,6 +243,11 @@
 
   .note-text ul, .note-text ol{margin:6px 0; padding-left:22px}
   .note-text li{margin:2px 0}
+
+  /* Công thức trong chi tiết bài + xem trước */
+  .mathcell{white-space:pre-wrap; line-height:1.65; word-break:break-word}
+  .mathcell .katex-display{margin:6px 0; overflow-x:auto; overflow-y:hidden; padding:2px 0}
+  .addform textarea{font-size:15px; line-height:1.6; padding:10px 12px}
 </style>
 </head>
 <body>
@@ -447,13 +452,15 @@
         <input id="fNotebook" type="text" placeholder="Vở, giấy, máy… (không bắt buộc)">
       </label>
       <label>Ghi chú lỗi sai
-        <textarea id="fMistakes" rows="2" placeholder="Không bắt buộc"></textarea>
+        <textarea id="fMistakes" rows="4" placeholder="Không bắt buộc"></textarea>
       </label>
       <label>Đáp án / Gợi ý
-        <textarea id="fAnswer" rows="2" placeholder="Không bắt buộc"></textarea>
+        <textarea id="fAnswer" rows="4" placeholder="Không bắt buộc"></textarea>
       </label>
       <div class="formerr" id="fError"></div>
       <button class="btn primary" id="fSubmit" type="submit" style="justify-content:center">Lưu vào Bảng ôn tập</button>
+      <button class="btn" id="fPreviewBtn" type="button" style="justify-content:center">👀 Xem trước lỗi sai & đáp án</button>
+      <div id="fPreview" class="note-card" style="display:none"></div>
     </form>
   </div>
 </div>
@@ -982,9 +989,9 @@ function openDetail(row) {
     ["Trạng thái", esc(L.status) + " · " + dueText(L)],
     ["% nhớ dự đoán", rc == null ? "—" : '<b style="color:' + bandColor(recallBand(L)) + '">' + rc + '%</b>'],
     ["Mức độ nhớ gần nhất", esc(L.lastGrade || "—")],
-    ["Nơi viết / Câu hỏi gợi nhớ", esc(L.notebook || "—")],
-    ["Đáp án / Gợi ý", esc(L.answer || "—")],
-    ["Ghi chú lỗi sai", esc(L.mistakes || "—")],
+    ["Nơi viết / Câu hỏi gợi nhớ", '<span class="mathcell">' + esc(L.notebook || "—") + '</span>'],
+    ["Đáp án / Gợi ý", '<span class="mathcell">' + esc(L.answer || "—") + '</span>'],
+    ["Ghi chú lỗi sai", '<span class="mathcell">' + esc(L.mistakes || "—") + '</span>'],
     ["Ngày học", esc(L.learnedDate || "—")],
     ["Ôn lần cuối", esc(L.lastReview || "—")],
     ["Số lần ôn", esc(L.reviewCount || "0")],
@@ -1004,15 +1011,20 @@ function openDetail(row) {
       '<label>Môn<select id="eSubject">' + (SUBJECTS.indexOf(L.subject) >= 0 ? SUBJECTS : SUBJECTS.concat([L.subject])).map(function (x) { return '<option' + (x === L.subject ? ' selected' : '') + '>' + esc(x) + '</option>'; }).join("") + '</select></label>' +
       '<label>Ngày học<input id="eDate" type="date"></label>' +
       '<label>Nơi viết / Câu hỏi gợi nhớ<input id="eNotebook" type="text"></label>' +
-      '<label>Ghi chú lỗi sai<textarea id="eMistakes" rows="2"></textarea></label>' +
-      '<label>Đáp án / Gợi ý<textarea id="eAnswer" rows="3"></textarea></label>' +
+      '<label>Ghi chú lỗi sai<textarea id="eMistakes" rows="5"></textarea></label>' +
+      '<label>Đáp án / Gợi ý<textarea id="eAnswer" rows="5"></textarea></label>' +
       '<div class="formerr" id="eError"></div>' +
       '<div style="display:flex;gap:8px"><button class="btn" id="eCancel" type="button" style="flex:1;justify-content:center">Huỷ</button>' +
       '<button class="btn primary" id="eSave" type="submit" style="flex:2;justify-content:center">Lưu thay đổi</button></div>' +
-    '</form></div>' +
+    '</form>' +
+      '<button class="btn" id="ePreviewBtn" type="button" style="width:100%;justify-content:center;margin-top:8px">👀 Xem trước lỗi sai & đáp án</button>' +
+      '<div id="ePreview" class="note-card" style="display:none;margin-top:10px"></div></div>' +
     '<div class="reviewbox">' +
       '<button class="btn primary" id="btnReviewed" type="button" style="width:100%;justify-content:center">✓ Đã ôn bài này</button>' +
     '</div>';
+  document.getElementById("ePreviewBtn").addEventListener("click", function () {
+    toggleLessonPreview("ePreview", document.getElementById("eMistakes").value, document.getElementById("eAnswer").value, this, "👀 Xem trước lỗi sai & đáp án");
+  });
   document.getElementById("btnReviewed").addEventListener("click", function () { openGrade(L); });
   document.getElementById("btnEdit").addEventListener("click", function () {
     document.getElementById("eTopic").value = L.topic || "";
@@ -1020,6 +1032,9 @@ function openDetail(row) {
     document.getElementById("eNotebook").value = L.notebook || "";
     document.getElementById("eMistakes").value = L.mistakes || "";
     document.getElementById("eAnswer").value = L.answer || "";
+    const epv = document.getElementById("ePreview");
+    epv.style.display = "none"; epv.innerHTML = "";
+    document.getElementById("ePreviewBtn").textContent = "👀 Xem trước lỗi sai & đáp án";
     document.getElementById("viewBox").style.display = "none";
     document.querySelector(".reviewbox").style.display = "none";
     this.style.display = "none";
@@ -1032,6 +1047,7 @@ function openDetail(row) {
     document.getElementById("btnEdit").style.display = "";
   });
   document.getElementById("editForm").addEventListener("submit", function (ev) { ev.preventDefault(); submitEdit(L.row); });
+  typesetWhenReady(document.getElementById("detailBody"));
   document.getElementById("detailOverlay").classList.add("open");
 }
 function closeDetail() { document.getElementById("detailOverlay").classList.remove("open"); }
@@ -1270,6 +1286,22 @@ function typesetEl(el) {
       throwOnError: false
     });
   } catch (e) {}
+}
+function typesetWhenReady(el, tries) {
+  if (!el) return;
+  if (window.renderMathInElement) { typesetEl(el); return; }
+  if ((tries || 0) < 12) setTimeout(function () { typesetWhenReady(el, (tries || 0) + 1); }, 300);
+}
+function toggleLessonPreview(pvId, mistakes, answer, btn, label) {
+  const pv = document.getElementById(pvId);
+  if (!pv) return;
+  if (pv.style.display !== "none" && pv.innerHTML) { pv.style.display = "none"; btn.textContent = label; return; }
+  pv.innerHTML =
+    '<div style="font-weight:700;margin-bottom:4px">Ghi chú lỗi sai</div><div class="mathcell">' + esc(mistakes || "—") + '</div>' +
+    '<div style="font-weight:700;margin:12px 0 4px">Đáp án / Gợi ý</div><div class="mathcell">' + esc(answer || "—") + '</div>';
+  pv.style.display = "";
+  btn.textContent = "🙈 Ẩn xem trước";
+  typesetWhenReady(pv);
 }
 function togglePreview(editorId, previewId, btn) {
   const ed = document.getElementById(editorId);
@@ -1652,6 +1684,9 @@ if (_gb) _gb.addEventListener("click", async function () {
 (function init() {
   document.getElementById("noteToolbar").innerHTML = noteToolbarHTML();
   pickNoteSubject(noteSubject);
+  document.getElementById("fPreviewBtn").addEventListener("click", function () {
+    toggleLessonPreview("fPreview", document.getElementById("fMistakes").value, document.getElementById("fAnswer").value, this, "👀 Xem trước lỗi sai & đáp án");
+  });
   renderNoteFilterChips();
   loadNotesCache();
   renderNotes();
