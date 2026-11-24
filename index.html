@@ -288,7 +288,7 @@
   .summary-grid>*{min-width:0}
   .card{min-width:0}
 
-  /* ===== File bài làm (PDF / XOPP) ===== */
+  /* ===== File bài làm (PDF) ===== */
   .filerow{display:flex; align-items:center; gap:8px; border:1px solid var(--line); border-radius:12px; padding:9px 11px; margin-top:8px; background:#FBFCFE}
   .filerow .fname{flex:1; min-width:0; font-weight:600; font-size:14.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
   .filerow .ftag{flex:none; font-size:11px; font-weight:800; letter-spacing:.04em; padding:3px 8px; border-radius:7px; background:var(--accent-soft); color:var(--accent)}
@@ -460,7 +460,7 @@
   </div>
 </div>
 
-<!-- ===== XEM FILE (PDF / XOPP) ===== -->
+<!-- ===== XEM FILE (PDF) ===== -->
 <div class="overlay" id="fileOverlay" style="z-index:76">
   <div class="modal modalwrap" role="dialog" aria-modal="true">
     <button class="xbtn" id="fileClose" type="button" aria-label="Đóng">✕</button>
@@ -1101,9 +1101,9 @@ function openDetail(row) {
     '<button class="btn" id="btnAddPhoto" type="button" style="width:100%;justify-content:center;margin-top:10px">📷 Thêm ảnh — chụp hoặc chọn từ máy</button>' +
     '<input type="file" id="photoInput" accept="image/*" multiple hidden></div>' +
     '<div class="d-sec"><h4>📎 File bài làm (<span id="fileCount">0</span>)</h4><div id="fileList"></div>' +
-    '<button class="btn" id="btnAddFile" type="button" style="width:100%;justify-content:center;margin-top:10px">📎 Thêm file PDF hoặc Xournal++ (.xopp)</button>' +
-    '<input type="file" id="fileInput" accept=".pdf,.xopp,application/pdf" multiple hidden>' +
-    '<div style="font-size:12.5px;color:var(--muted);margin-top:8px">PDF xem được ngay trên web. File .xopp xem trước được nét viết; nếu bài làm viết trên nền một file PDF, đăng kèm file PDF đó (cùng tên) để web ghép nền khi xem.</div></div>' +
+    '<button class="btn" id="btnAddFile" type="button" style="width:100%;justify-content:center;margin-top:10px">📎 Thêm file PDF</button>' +
+    '<input type="file" id="fileInput" accept=".pdf,application/pdf" multiple hidden>' +
+    '<div style="font-size:12.5px;color:var(--muted);margin-top:8px">PDF xem được ngay trên web, cuộn dọc xem hết các trang. Bài làm viết trong Xournal++ thì xuất ra PDF (File → Export as PDF) rồi đăng file PDF đó lên đây.</div></div>' +
     '<div class="d-sec"><h4>🕘 Lịch sử ôn</h4><div class="hist" style="margin-top:0">' + esc(L.history || "Chưa có lịch sử ôn.") + '</div></div></div>' +
     '<div class="reviewbox detail-actions">' +
       '<button class="btn" id="btnEdit" type="button">✏️ Sửa thông tin bài</button>' +
@@ -1537,7 +1537,7 @@ async function uploadPhotos(L, fileList) {
     if (btn) { btn.disabled = false; btn.textContent = oldLabel; }
   }
 }
-/* ===== File bài làm (PDF / .xopp): lưu Drive, danh sách ghi ở cột T ===== */
+/* ===== File bài làm (PDF): lưu Drive, danh sách ghi ở cột T ===== */
 async function saveFiles(L) {
   const tok = await tokenOrSilent();
   if (!tok) throw new Error("no-token");
@@ -1567,13 +1567,12 @@ async function uploadFileResumable(tok, folderId, file) {
 function fileKind(name) {
   const n = (name || "").toLowerCase();
   if (n.endsWith(".pdf")) return "pdf";
-  if (n.endsWith(".xopp") || n.endsWith(".xoj")) return "xopp";
   return "";
 }
 async function uploadFiles(L, fileList) {
   const all = Array.prototype.slice.call(fileList || []);
   const files = all.filter(function (f) { return fileKind(f.name); });
-  if (!files.length) { if (all.length) showToast("Chỉ nhận file PDF hoặc .xopp nhé."); return; }
+  if (!files.length) { if (all.length) showToast("Chỉ nhận file PDF nhé."); return; }
   const btn = document.getElementById("btnAddFile");
   const oldLabel = btn ? btn.textContent : "";
   if (btn) btn.disabled = true;
@@ -1606,13 +1605,13 @@ function renderFiles(L) {
   const box = document.getElementById("fileList");
   if (!box) return;
   if (!L.files.length) {
-    box.innerHTML = '<div style="font-size:14px;color:var(--muted)">Chưa có file nào. Đăng file PDF bài làm hoặc file Xournal++ (.xopp) của bài này lên đây.</div>';
+    box.innerHTML = '<div style="font-size:14px;color:var(--muted)">Chưa có file nào. Đăng file PDF bài làm của bài này lên đây.</div>';
     return;
   }
   box.innerHTML = L.files.map(function (f, i) {
     return '<div class="filerow"><span class="ftag' + (f.t === "xopp" ? " xopp" : "") + '">' + (f.t === "xopp" ? "XOPP" : "PDF") + '</span>' +
       '<span class="fname">' + esc(f.n) + '</span>' +
-      '<button class="btn small" type="button" data-view="' + i + '">👁 Xem</button>' +
+      (f.t === "pdf" ? '<button class="btn small" type="button" data-view="' + i + '">👁 Xem</button>' : '') +
       '<button class="btn small" type="button" data-dl="' + i + '">⬇ Tải</button>' +
       '<button class="btn small" type="button" data-del="' + i + '" style="color:var(--red)">🗑</button></div>';
   }).join("");
@@ -1662,8 +1661,6 @@ function loadPdfJs() {
   return loadScriptOnce("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js", function () { return !!window.pdfjsLib; })
     .then(function () { window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"; });
 }
-function loadPako() { return loadScriptOnce("https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js", function () { return !!window.pako; }); }
-function loadJSZip() { return loadScriptOnce("https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js", function () { return !!window.JSZip; }); }
 async function fetchFileBlob(id) {
   let tok = await tokenOrSilent();
   if (!tok) throw new Error("no-token");
@@ -1679,21 +1676,16 @@ async function fetchFileBlob(id) {
 async function openFile(L, idx) {
   const f = L.files[idx];
   if (!f) return;
-  fileView = { L: L, f: f, idx: idx, page: 1, scale: 1.4, pdfDoc: null, xopp: null, bgDocs: {} };
+  fileView = { L: L, f: f, idx: idx, page: 1, scale: 1.4, pdfDoc: null };
   document.getElementById("fileTitle").textContent = f.n;
-  document.getElementById("fileSub").textContent = f.t === "xopp" ? "File Xournal++ — bản xem trước nét viết ngay trên web" : "File PDF — xem ngay trên web";
+  document.getElementById("fileSub").textContent = "File PDF — xem ngay trên web";
   document.getElementById("fileBody").innerHTML = '<div style="color:var(--muted);padding:40px 0">⏳ Đang tải file…</div>';
   document.getElementById("filePageInfo").textContent = "";
   document.getElementById("fileOverlay").classList.add("open");
   try {
-    if (f.t === "pdf") {
-      await loadPdfJs();
-      const blob = await fetchFileBlob(f.id);
-      fileView.pdfDoc = await window.pdfjsLib.getDocument({ data: await blob.arrayBuffer() }).promise;
-    } else {
-      const blob = await fetchFileBlob(f.id);
-      fileView.xopp = await parseXoppData(new Uint8Array(await blob.arrayBuffer()));
-    }
+    await loadPdfJs();
+    const blob = await fetchFileBlob(f.id);
+    fileView.pdfDoc = await window.pdfjsLib.getDocument({ data: await blob.arrayBuffer() }).promise;
     await renderAllPages();
   } catch (e) {
     const body = document.getElementById("fileBody");
@@ -1717,7 +1709,6 @@ function closeFile() {
 function fileTotalPages() {
   if (!fileView) return 0;
   if (fileView.pdfDoc) return fileView.pdfDoc.numPages;
-  if (fileView.xopp) return fileView.xopp.pages.length;
   return 0;
 }
 async function renderAllPages() {
@@ -1740,7 +1731,6 @@ async function renderAllPages() {
     body.appendChild(label);
     try {
       if (fv.pdfDoc) await appendPdfPage(body, fv, i);
-      else if (fv.xopp) await appendXoppPage(body, fv, i);
     } catch (e) {
       const err = document.createElement("div");
       err.style.cssText = "color:var(--red);font-size:13.5px;padding:8px 0";
@@ -1750,12 +1740,6 @@ async function renderAllPages() {
   }
   if (fileView !== fv) return;
   status.remove();
-  if (fv.xopp && fv.bgMissing && !fv.bgFound) {
-    const note = document.createElement("div");
-    note.style.cssText = "background:#FFF7E6;border:1px solid #F3DFAE;color:#7A5410;border-radius:12px;padding:10px 13px;font-size:13.5px;margin-bottom:6px;text-align:left";
-    note.textContent = "⚠ File này được viết trên nền PDF “" + fv.bgMissing + "” nhưng bài này chưa có file PDF đó, nên hiện chỉ xem được nét viết tay. Bạn đăng kèm file PDF đó vào bài này (mục 📎 File bài làm) rồi mở lại là xem được đầy đủ.";
-    body.insertBefore(note, body.firstChild);
-  }
 }
 async function appendPdfPage(body, fv, i) {
   const page = await fv.pdfDoc.getPage(i);
@@ -1771,145 +1755,6 @@ async function appendPdfPage(body, fv, i) {
   const ctx = canvas.getContext("2d");
   ctx.scale(dpr, dpr);
   await page.render({ canvasContext: ctx, viewport: viewport }).promise;
-}
-
-/* ===== Đọc file .xopp: bung nén, lấy nét viết + chữ từng trang ===== */
-async function parseXoppData(buf) {
-  if (buf[0] === 0x1f && buf[1] === 0x8b) {
-    await loadPako();
-    return parseXopp(window.pako.ungzip(buf, { to: "string" }), null);
-  }
-  if (buf[0] === 0x50 && buf[1] === 0x4b) {
-    await loadJSZip();
-    const zip = await window.JSZip.loadAsync(buf);
-    const names = Object.keys(zip.files);
-    const xmlName = names.filter(function (n) { return /content\.xml$/i.test(n); })[0] || names.filter(function (n) { return /\.xml$/i.test(n); })[0];
-    if (!xmlName) throw new Error("xopp-zip-noxml");
-    const xmlText = await zip.file(xmlName).async("string");
-    return parseXopp(xmlText, zip);
-  }
-  return parseXopp(new TextDecoder().decode(buf), null);
-}
-function parseXopp(xmlText, zip) {
-  const doc = new DOMParser().parseFromString(xmlText, "text/xml");
-  const pages = [];
-  doc.querySelectorAll("page").forEach(function (pg) {
-    const bg = pg.querySelector("background");
-    const page = {
-      w: parseFloat(pg.getAttribute("width")) || 595.27,
-      h: parseFloat(pg.getAttribute("height")) || 841.89,
-      bgPdf: null, bgPage: 1, els: []
-    };
-    if (bg && bg.getAttribute("type") === "pdf") {
-      page.bgPdf = (bg.getAttribute("filename") || "").split(/[\\/]/).pop().normalize("NFC").toLowerCase();
-      page.bgPage = parseInt(bg.getAttribute("pageno") || "1", 10) || 1;
-    }
-    pg.querySelectorAll("layer > *").forEach(function (el) {
-      if (el.tagName === "stroke") {
-        const widths = (el.getAttribute("width") || "1").trim().split(/\s+/).map(Number);
-        page.els.push({ k: "stroke", tool: el.getAttribute("tool") || "pen", color: el.getAttribute("color") || "#000000", w: widths[0] || 1, pts: (el.textContent || "").trim().split(/\s+/).map(Number) });
-      } else if (el.tagName === "text") {
-        page.els.push({ k: "text", x: parseFloat(el.getAttribute("x")) || 0, y: parseFloat(el.getAttribute("y")) || 0, size: parseFloat(el.getAttribute("size")) || 12, color: el.getAttribute("color") || "#000000", font: el.getAttribute("font") || "", text: el.textContent || "" });
-      }
-    });
-    pages.push(page);
-  });
-  if (!pages.length) throw new Error("xopp-empty");
-  return { pages: pages, zip: zip };
-}
-function xoppColor(c) {
-  if (/^#[0-9a-fA-F]{8}$/.test(c)) {
-    const a = parseInt(c.slice(7, 9), 16) / 255;
-    return "rgba(" + parseInt(c.slice(1, 3), 16) + "," + parseInt(c.slice(3, 5), 16) + "," + parseInt(c.slice(5, 7), 16) + "," + a.toFixed(3) + ")";
-  }
-  return c;
-}
-async function appendXoppPage(body, fv, pageIndex) {
-  const page = fv.xopp.pages[pageIndex - 1];
-  if (!page) { const d = document.createElement("div"); d.style.cssText = "color:var(--muted);padding:20px 0"; d.textContent = "Trang này trống."; body.appendChild(d); return; }
-  const containerW = Math.min(body.clientWidth || 800, 860);
-  const scale = (containerW / page.w) * (fv.scale / 1.4);
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
-  const canvas = document.createElement("canvas");
-  canvas.className = "pdfcanvas";
-  canvas.width = Math.round(page.w * scale * dpr);
-  canvas.height = Math.round(page.h * scale * dpr);
-  canvas.style.width = Math.round(page.w * scale) + "px";
-  canvas.style.marginBottom = "6px";
-  body.appendChild(canvas);
-  const ctx = canvas.getContext("2d");
-  ctx.fillStyle = "#FFFFFF";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.scale(scale * dpr, scale * dpr);
-  /* Nền PDF: ưu tiên file PDF đính kèm cùng tên, sau đó tới PDF gói sẵn trong file .xopp */
-  if (page.bgPdf) {
-    try {
-      await loadPdfJs();
-      let doc = null;
-      let match = fv.L.files.filter(function (x) { return x.t === "pdf" && x.n.normalize("NFC").toLowerCase() === page.bgPdf; })[0];
-      if (!match) {
-        const pdfs = fv.L.files.filter(function (x) { return x.t === "pdf"; });
-        if (pdfs.length === 1) match = pdfs[0];
-      }
-      const key = match ? match.id : ("zip:" + page.bgPdf);
-      if (fv.bgDocs[key]) doc = fv.bgDocs[key];
-      else if (match) {
-        const blob = await fetchFileBlob(match.id);
-        doc = await window.pdfjsLib.getDocument({ data: await blob.arrayBuffer() }).promise;
-        fv.bgDocs[key] = doc;
-      } else if (fv.xopp.zip) {
-        const names = Object.keys(fv.xopp.zip.files);
-        const entryName = names.filter(function (n) { return n.split("/").pop().normalize("NFC").toLowerCase() === page.bgPdf; })[0];
-        if (entryName) {
-          const data = await fv.xopp.zip.file(entryName).async("uint8array");
-          doc = await window.pdfjsLib.getDocument({ data: data }).promise;
-          fv.bgDocs[key] = doc;
-        }
-      }
-      if (doc) {
-        const pno = Math.min(Math.max(1, page.bgPage), doc.numPages);
-        const p = await doc.getPage(pno);
-        const vp = p.getViewport({ scale: 1 });
-        const oscale = (page.w / vp.width) * scale * dpr;
-        const off = document.createElement("canvas");
-        off.width = Math.round(vp.width * oscale);
-        off.height = Math.round(vp.height * oscale);
-        await p.render({ canvasContext: off.getContext("2d"), viewport: p.getViewport({ scale: oscale }) }).promise;
-        ctx.drawImage(off, 0, 0, page.w, page.h);
-        fv.bgFound = true;
-      } else {
-        fv.bgMissing = fv.bgMissing || page.bgPdf;
-      }
-    } catch (e) { fv.bgMissing = fv.bgMissing || page.bgPdf; }
-  }
-  /* Nét viết + chữ đánh máy */
-  page.els.forEach(function (el) {
-    if (el.k === "stroke") {
-      if (el.pts.length < 2) return;
-      const col = xoppColor(el.color);
-      ctx.strokeStyle = col;
-      ctx.fillStyle = col;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      ctx.lineWidth = Math.max(0.6, el.w);
-      if (el.tool === "highlighter") ctx.globalAlpha = 0.45;
-      ctx.beginPath();
-      if (el.pts.length === 2) {
-        ctx.arc(el.pts[0], el.pts[1], Math.max(0.6, el.w) / 2, 0, Math.PI * 2);
-        ctx.fill();
-      } else {
-        ctx.moveTo(el.pts[0], el.pts[1]);
-        for (let i = 2; i + 1 < el.pts.length; i += 2) ctx.lineTo(el.pts[i], el.pts[i + 1]);
-        ctx.stroke();
-      }
-      ctx.globalAlpha = 1;
-    } else if (el.k === "text") {
-      ctx.fillStyle = xoppColor(el.color);
-      ctx.font = el.size + "px " + (el.font ? "'" + el.font.split(",")[0].replace(/'/g, "") + "'," : "") + "sans-serif";
-      ctx.textBaseline = "top";
-      el.text.split("\n").forEach(function (ln, li) { ctx.fillText(ln, el.x, el.y + li * el.size * 1.25); });
-    }
-  });
 }
 
 let currentImg = null;
