@@ -274,6 +274,8 @@
   /* ===== Ảnh tài liệu trong chi tiết bài ===== */
   .photogrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(104px,1fr)); gap:10px}
   .photogrid .ph{padding:0; border:1px solid var(--line); border-radius:12px; overflow:hidden; background:#EEF2F7; cursor:pointer; aspect-ratio:4/3}
+  .photogrid .ph{position:relative}
+  .photogrid .phnum{position:absolute; top:6px; left:6px; z-index:2; min-width:22px; height:22px; padding:0 5px; border-radius:999px; background:rgba(17,24,39,.78); color:#fff; font-size:12.5px; font-weight:700; display:flex; align-items:center; justify-content:center}
   .photogrid .ph img{width:100%; height:100%; object-fit:cover; display:block}
 
   /* Điện thoại: thanh tab vừa khít màn hình, không tràn ngang */
@@ -1431,7 +1433,7 @@ function renderPhotos(L) {
     return;
   }
   grid.innerHTML = L.images.map(function (id, i) {
-    return '<button type="button" class="ph" data-i="' + i + '"><span class="phload">⏳</span><img alt="Ảnh ' + (i + 1) + '" style="display:none"></button>';
+    return '<button type="button" class="ph" data-i="' + i + '"><span class="phnum">' + (i + 1) + '</span><span class="phload">⏳</span><img alt="Ảnh ' + (i + 1) + '" style="display:none"></button>';
   }).join("");
   grid.querySelectorAll(".ph").forEach(function (b) {
     const i = Number(b.getAttribute("data-i"));
