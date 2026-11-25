@@ -620,11 +620,12 @@
 "use strict";
 /* ===== Firebase config - chép nguyên văn từ web Thư viện Video Bấm Máy ===== */
 const firebaseConfig = { apiKey: "AIzaSyBAyMWdWWYySvGGsGORFZrTj4aM6oj6cpE", authDomain: "giupaedonv1.firebaseapp.com", projectId: "giupaedonv1", storageBucket: "giupaedonv1.firebasestorage.app", messagingSenderId: "1053830682519", appId: "1:1053830682519:web:4a1ceada98de52d8c956d2" };
-const SR_SHEET_ID = "11RklBcauP9tG--BFHY4a5ysHHIrgH43Hb-uPJbqJ27I";
+const OWNER_SHEET_ID = "11RklBcauP9tG--BFHY4a5ysHHIrgH43Hb-uPJbqJ27I";
+let SR_SHEET_ID = OWNER_SHEET_ID;
 const BOARD_TABS = { study: "Bảng ôn tập", ex: "Bảng bài tập" };
 let board = "study";
 let SR_TAB = BOARD_TABS.study;
-function cacheKey() { return board === "ex" ? "sb-cache-ex-v1" : "sb-cache-v1"; }
+function cacheKey() { return userKey(board === "ex" ? "sb-cache-ex-v1" : "sb-cache-v1"); }
 function applyBoardUI() {
   const ex = board === "ex";
   document.body.classList.toggle("board-ex", ex);
@@ -658,7 +659,19 @@ function setBoard(b) {
   else if (!cache) showNotice("Bảng này chưa có dữ liệu trên máy này - bấm nút Đăng nhập Google một lần để tải về.");
 }
 const OWNER_EMAIL_SR = "thaonguyenvg19@gmail.com";
-const SHEETS_API = "https://sheets.googleapis.com/v4/spreadsheets/" + SR_SHEET_ID + "/values/";
+let SHEETS_API = "https://sheets.googleapis.com/v4/spreadsheets/" + SR_SHEET_ID + "/values/";
+function setSheetId(id) {
+  SR_SHEET_ID = id;
+  SHEETS_API = "https://sheets.googleapis.com/v4/spreadsheets/" + id + "/values/";
+}
+/* Mỗi tài khoản Google dùng Sheet riêng của họ; cache/token/thư mục Drive tách theo email */
+let currentEmail = "";
+try {
+  currentEmail = localStorage.getItem("sb-last-email") || "";
+  /* Bản cũ chỉ chủ dùng được nên cache cũ (khoá không hậu tố) chắc chắn là của chủ */
+  if (!currentEmail && localStorage.getItem("sb-cache-v1")) currentEmail = OWNER_EMAIL_SR;
+} catch (e) {}
+function userKey(base) { return currentEmail ? base + "-" + currentEmail : base; }
 
 /* ===== Bản chụp dự phòng (69 bài, chụp 23/11/2026) ===== */
 const SNAPSHOT = [];
@@ -722,22 +735,25 @@ function subjStyle(name) { return SUBJ[name] || SUBJ_DEFAULT; }
 
 /* ===== Token & cache ===== */
 function saveToken(tok) {
-  try { localStorage.setItem("sb-gtoken", JSON.stringify({ t: tok, exp: Date.now() + 55 * 60 * 1000 })); } catch (e) {}
+  try { localStorage.setItem(userKey("sb-gtoken"), JSON.stringify({ t: tok, exp: Date.now() + 55 * 60 * 1000 })); } catch (e) {}
 }
 function getToken() {
   try {
-    const c = JSON.parse(localStorage.getItem("sb-gtoken") || "null");
+    let c = JSON.parse(localStorage.getItem(userKey("sb-gtoken")) || "null");
+    if ((!c || !c.t) && currentEmail === OWNER_EMAIL_SR) c = JSON.parse(localStorage.getItem("sb-gtoken") || "null");
     if (c && c.t && c.exp > Date.now() + 30000) return c.t;
   } catch (e) {}
   return null;
 }
-function clearToken() { try { localStorage.removeItem("sb-gtoken"); } catch (e) {} }
+function clearToken() { try { localStorage.removeItem(userKey("sb-gtoken")); localStorage.removeItem("sb-gtoken"); } catch (e) {} }
 function saveCache(list) {
   try { localStorage.setItem(cacheKey(), JSON.stringify({ at: Date.now(), lessons: list })); } catch (e) {}
 }
 function loadCache() {
   try {
-    const c = JSON.parse(localStorage.getItem(cacheKey()) || "null");
+    if (!currentEmail) return null;
+    let c = JSON.parse(localStorage.getItem(cacheKey()) || "null");
+    if (!c && currentEmail === OWNER_EMAIL_SR) c = JSON.parse(localStorage.getItem(board === "ex" ? "sb-cache-ex-v1" : "sb-cache-v1") || "null");
     if (c && Array.isArray(c.lessons) && c.lessons.length) {
       c.lessons.forEach(function (L) {
         if (!Array.isArray(L.images)) L.images = [];
@@ -880,7 +896,11 @@ function renderToday() {
       badgeHTML(u) + '<span class="duetxt">' + dueText(u) + ' · Nhớ ' + esc(u.recall || "-") + '</span></div></div>';
   } else {
     if (!lessons.length) {
-      urgentBox.innerHTML = '<div class="card" style="margin-bottom:6px;text-align:center;padding:22px 18px"><div style="font-weight:700;font-size:16.5px;margin-bottom:6px">Chưa có dữ liệu trên máy này</div><div style="color:#5B6B82;font-size:14px;line-height:1.5;margin-bottom:14px">Bảng học nằm trong Google Sheet của bạn nên cần tải về máy này một lần.</div><button type="button" onclick="loadFromSheet()" style="background:#2563eb;color:#fff;border:none;border-radius:12px;padding:13px 20px;font-size:15.5px;font-weight:600;cursor:pointer;width:100%">Tải dữ liệu từ Google Sheet</button></div>';
+      if (currentEmail) {
+        urgentBox.innerHTML = '<div class="card" style="margin-bottom:6px;text-align:center;padding:22px 18px"><div style="font-weight:700;font-size:16.5px;margin-bottom:6px">Bảng của bạn đang trống</div><div style="color:#5B6B82;font-size:14px;line-height:1.5">Bấm nút <b>+ Thêm bài mới</b> ở trên để thêm bài đầu tiên.</div></div>';
+      } else {
+        urgentBox.innerHTML = '<div class="card" style="margin-bottom:6px;text-align:center;padding:22px 18px"><div style="font-weight:700;font-size:16.5px;margin-bottom:6px">Chưa có dữ liệu trên máy này</div><div style="color:#5B6B82;font-size:14px;line-height:1.5;margin-bottom:14px">Bảng học nằm trong Google Sheet của bạn nên cần tải về máy này một lần.</div><button type="button" onclick="loadFromSheet()" style="background:#2563eb;color:#fff;border:none;border-radius:12px;padding:13px 20px;font-size:15.5px;font-weight:600;cursor:pointer;width:100%">Tải dữ liệu từ Google Sheet</button></div>';
+      }
     } else {
       urgentBox.innerHTML = '<div class="card" style="margin-bottom:6px"><b>🎉 Hôm nay không có bài nào cần ôn.</b></div>';
     }
@@ -1103,7 +1123,7 @@ async function submitReview(row, grade) {
   msg.textContent = "Đang ghi vào Google Sheet…";
   try {
     let tok = await tokenOrSilent();
-    if (!tok) { try { tok = await signIn(); } catch (e) { throw new Error("Cần đăng nhập Google bằng tài khoản chủ để ghi nhận ôn bài."); } }
+    if (!tok) { try { tok = await signIn(); } catch (e) { throw new Error("Cần đăng nhập Google để ghi nhận ôn bài."); } }
     if (!tok) throw new Error("Chưa có quyền ghi vào Sheet.");
     const hdr = { Authorization: "Bearer " + tok, "Content-Type": "application/json" };
     const wRows = await sheetsGetRaw(tok, "Cấu hình!J6:J26");
@@ -1171,7 +1191,7 @@ async function submitEdit(row) {
   btn.disabled = true; btn.textContent = "Đang lưu…";
   try {
     let tok = await tokenOrSilent();
-    if (!tok) { try { tok = await signIn(); } catch (e) { throw new Error("Cần đăng nhập Google bằng tài khoản chủ để sửa bài."); } }
+    if (!tok) { try { tok = await signIn(); } catch (e) { throw new Error("Cần đăng nhập Google để sửa bài."); } }
     if (!tok) throw new Error("Chưa có quyền ghi vào Sheet.");
     const hdr = { Authorization: "Bearer " + tok, "Content-Type": "application/json" };
     const data = [
@@ -1331,10 +1351,11 @@ const NOTES_TAB = "Ghi chú";
 let notes = [];
 let notesLoaded = false;
 let editingNoteRow = null;
-function saveNotesCache() { try { localStorage.setItem("sb-notes-v1", JSON.stringify({ at: Date.now(), notes: notes })); } catch (e) {} }
+function saveNotesCache() { try { localStorage.setItem(userKey("sb-notes-v1"), JSON.stringify({ at: Date.now(), notes: notes })); } catch (e) {} }
 function loadNotesCache() {
   try {
-    const c = JSON.parse(localStorage.getItem("sb-notes-v1") || "null");
+    let c = JSON.parse(localStorage.getItem(userKey("sb-notes-v1")) || "null");
+    if (!c && currentEmail === OWNER_EMAIL_SR) c = JSON.parse(localStorage.getItem("sb-notes-v1") || "null");
     if (c && c.notes) { notes = c.notes; notesLoaded = true; }
   } catch (e) {}
 }
@@ -1596,17 +1617,17 @@ function renderPhotos(L) {
   });
 }
 async function ensurePhotoFolder(tok) {
-  try { const saved = localStorage.getItem("sb-drive-folder"); if (saved) return saved; } catch (e) {}
+  try { const saved = localStorage.getItem(userKey("sb-drive-folder")) || (currentEmail === OWNER_EMAIL_SR ? localStorage.getItem("sb-drive-folder") : null); if (saved) return saved; } catch (e) {}
   const q = encodeURIComponent("name='BangHoc-Anh' and mimeType='application/vnd.google-apps.folder' and trashed=false");
   const r = await fetch(DRIVE_API + "?q=" + q + "&fields=files(id,name)", { headers: { Authorization: "Bearer " + tok } });
   if (r.ok) {
     const j = await r.json();
-    if (j.files && j.files.length) { try { localStorage.setItem("sb-drive-folder", j.files[0].id); } catch (e) {} return j.files[0].id; }
+    if (j.files && j.files.length) { try { localStorage.setItem(userKey("sb-drive-folder"), j.files[0].id); } catch (e) {} return j.files[0].id; }
   }
   const r2 = await fetch(DRIVE_API, { method: "POST", headers: { Authorization: "Bearer " + tok, "Content-Type": "application/json" }, body: JSON.stringify({ name: "BangHoc-Anh", mimeType: "application/vnd.google-apps.folder" }) });
   if (!r2.ok) throw new Error("drive-folder-" + r2.status);
   const j2 = await r2.json();
-  try { localStorage.setItem("sb-drive-folder", j2.id); } catch (e) {}
+  try { localStorage.setItem(userKey("sb-drive-folder"), j2.id); } catch (e) {}
   return j2.id;
 }
 function compressImage(file) {
@@ -2064,7 +2085,7 @@ async function saveNoteEdit(row) {
   if (!ta.textContent.trim()) { alert("Ghi chú đang trống - muốn xoá thì bấm nút Xoá nhé."); return; }
   const text = sanitizeNoteHtml(ta.innerHTML);
   const tok = await notesToken();
-  if (!tok) { alert("Cần đăng nhập Google bằng tài khoản chủ để sửa ghi chú."); return; }
+  if (!tok) { alert("Cần đăng nhập Google để sửa ghi chú."); return; }
   try {
     await writeNoteCells(tok, [
       { range: NOTES_TAB + "!B" + row, values: [[text]] },
@@ -2078,7 +2099,7 @@ async function saveNoteEdit(row) {
 async function deleteNote(row) {
   if (!confirm("Xoá ghi chú này?")) return;
   const tok = await notesToken();
-  if (!tok) { alert("Cần đăng nhập Google bằng tài khoản chủ để xoá ghi chú."); return; }
+  if (!tok) { alert("Cần đăng nhập Google để xoá ghi chú."); return; }
   try {
     await writeNoteCells(tok, [{ range: NOTES_TAB + "!A" + row + ":C" + row, values: [["", "", ""]] }]);
     showToast("Đã xoá ghi chú");
@@ -2093,7 +2114,7 @@ document.getElementById("noteForm").addEventListener("submit", async function (e
   if (!input.textContent.trim()) { errBox.textContent = "Chưa viết ghi chú."; errBox.classList.add("show"); return; }
   const text = sanitizeNoteHtml(input.innerHTML);
   const tok = await notesToken();
-  if (!tok) { errBox.textContent = "Cần đăng nhập Google bằng tài khoản chủ để lưu ghi chú."; errBox.classList.add("show"); return; }
+  if (!tok) { errBox.textContent = "Cần đăng nhập Google để lưu ghi chú."; errBox.classList.add("show"); return; }
   const btn = document.getElementById("noteSave");
   btn.disabled = true; btn.textContent = "Đang lưu…";
   try {
@@ -2146,7 +2167,7 @@ document.getElementById("searchBox").addEventListener("input", renderAll);
 document.getElementById("statusSel").addEventListener("change", renderAll);
 document.getElementById("recallSel").addEventListener("change", renderAll);
 
-/* ===== Firebase Auth (chỉ chủ sở hữu) ===== */
+/* ===== Firebase Auth (mỗi người một Sheet riêng) ===== */
 let fbReady = false;
 try {
   if (typeof firebase !== "undefined") {
@@ -2155,18 +2176,30 @@ try {
     fbReady = true;
     firebase.auth().onAuthStateChanged(function (user) {
       const btn = document.getElementById("btnAuth");
-      if (user && (user.email || "").toLowerCase() === OWNER_EMAIL_SR) {
+      if (user) {
+        const em = (user.email || "").toLowerCase();
+        const switched = em !== currentEmail;
+        currentEmail = em;
+        try { localStorage.setItem("sb-last-email", currentEmail); } catch (e) {}
         btn.textContent = "✓ " + user.email;
-        try { localStorage.setItem("bh-owner-ok", "1"); } catch (e) {}
         var _g = document.getElementById("gate"); if (_g) _g.style.display = "none";
-        if (!getToken()) showNotice("Đã nhận ra tài khoản chủ - bấm nút Tải dữ liệu từ Google Sheet ở dưới để tải bảng học về máy này.");
-      } else if (user) {
-        firebase.auth().signOut();
-        clearToken();
-        btn.textContent = "Đăng nhập Google";
-        showNotice("Tài khoản " + (user.email || "") + " không phải tài khoản chủ - đã đăng xuất.");
+        if (switched) {
+          const cache = loadCache();
+          lessons = cache ? cache.lessons : [];
+          notes = []; notesLoaded = false; loadNotesCache(); renderNotes();
+          renderAll_Tabs(false);
+        }
+        if (getToken()) refreshWithToken(getToken());
+        else showNotice("Đã đăng nhập - bấm nút Tải dữ liệu từ Google Sheet ở dưới để tải bảng của bạn về máy này.");
       } else {
+        currentEmail = "";
+        sheetResolvedFor = "";
+        setSheetId(OWNER_SHEET_ID);
+        try { localStorage.removeItem("sb-last-email"); } catch (e) {}
         btn.textContent = "Đăng nhập Google";
+        lessons = [];
+        notes = []; notesLoaded = false; renderNotes();
+        renderAll_Tabs(false);
       }
     });
   }
@@ -2178,16 +2211,10 @@ async function signIn() {
   provider.addScope("https://www.googleapis.com/auth/spreadsheets");
   provider.addScope("https://www.googleapis.com/auth/drive.file");
   const res = await firebase.auth().signInWithPopup(provider);
-  const email = (res.user && res.user.email || "").toLowerCase();
-  if (email !== OWNER_EMAIL_SR) {
-    await firebase.auth().signOut();
-    clearToken();
-    showNotice("Chỉ tài khoản chủ mới dùng được trang này.");
-    throw new Error("not-owner");
-  }
+  currentEmail = (res.user && res.user.email || "").toLowerCase();
+  try { localStorage.setItem("sb-last-email", currentEmail); } catch (e) {}
   const tok = res.credential && res.credential.accessToken;
   if (tok) saveToken(tok);
-  try { localStorage.setItem("bh-owner-ok", "1"); } catch (e) {}
   hideNotice();
   return tok;
 }
@@ -2223,10 +2250,10 @@ async function tokenOrSilent() {
 }
 document.getElementById("btnAuth").addEventListener("click", async function () {
   const user = fbReady && firebase.auth().currentUser;
-  if (user && (user.email || "").toLowerCase() === OWNER_EMAIL_SR && getToken()) {
-    if (confirm("Đăng xuất khỏi tài khoản chủ?")) {
-      await firebase.auth().signOut();
+  if (user && getToken()) {
+    if (confirm("Đăng xuất khỏi tài khoản Google?")) {
       clearToken();
+      await firebase.auth().signOut();
       showToast("Đã đăng xuất.");
     }
     return;
@@ -2234,6 +2261,122 @@ document.getElementById("btnAuth").addEventListener("click", async function () {
   try { const tok = await signIn(); if (tok) { showToast("Đăng nhập xong - đang tải dữ liệu mới…"); refreshWithToken(tok); } }
   catch (e) { if (e && e.code !== "auth/popup-closed-by-user") showNotice("Đăng nhập không thành công: " + (e.message || e)); }
 });
+
+/* ===== Sheet riêng của từng người: tìm trong Drive của họ, chưa có thì tạo mới đúng cấu trúc ===== */
+let sheetResolvedFor = "";
+let sheetJustCreated = false;
+let sheetResolvePromise = null;
+function ensureSheetId(tok) {
+  if (!currentEmail) return Promise.resolve();
+  if (sheetResolvedFor === currentEmail) return Promise.resolve();
+  if (sheetResolvePromise) return sheetResolvePromise;
+  sheetResolvePromise = (async function () {
+    try { await resolveSheetIdInner(tok); }
+    finally { sheetResolvePromise = null; }
+  })();
+  return sheetResolvePromise;
+}
+async function resolveSheetIdInner(tok) {
+  if (currentEmail === OWNER_EMAIL_SR) {
+    setSheetId(OWNER_SHEET_ID);
+    try { localStorage.setItem("sb-sheet-" + currentEmail, OWNER_SHEET_ID); } catch (e) {}
+    sheetResolvedFor = currentEmail;
+    return;
+  }
+  let saved = null;
+  try { saved = localStorage.getItem("sb-sheet-" + currentEmail); } catch (e) {}
+  if (saved) {
+    const r = await fetch("https://sheets.googleapis.com/v4/spreadsheets/" + saved + "?fields=spreadsheetId", { headers: { Authorization: "Bearer " + tok } });
+    if (r.ok) { setSheetId(saved); sheetResolvedFor = currentEmail; return; }
+  }
+  const q = encodeURIComponent("appProperties has { key='banghoc' and value='study-board' } and trashed=false");
+  const rf = await fetch(DRIVE_API + "?q=" + q + "&fields=files(id,name,createdTime)&orderBy=createdTime", { headers: { Authorization: "Bearer " + tok } });
+  if (rf.ok) {
+    const jf = await rf.json();
+    if (jf.files && jf.files.length) {
+      setSheetId(jf.files[0].id);
+      try { localStorage.setItem("sb-sheet-" + currentEmail, jf.files[0].id); } catch (e) {}
+      sheetResolvedFor = currentEmail;
+      return;
+    }
+  }
+  showToast("Đang tạo bảng riêng cho bạn…");
+  const newId = await createUserSheet(tok);
+  setSheetId(newId);
+  try { localStorage.setItem("sb-sheet-" + currentEmail, newId); } catch (e) {}
+  sheetResolvedFor = currentEmail;
+  sheetJustCreated = true;
+}
+async function createUserSheet(tok) {
+  const hdr = { Authorization: "Bearer " + tok, "Content-Type": "application/json" };
+  const rc = await fetch("https://sheets.googleapis.com/v4/spreadsheets", {
+    method: "POST", headers: hdr,
+    body: JSON.stringify({
+      properties: { title: "Bảng ôn tập Spaced Repetition", locale: "vi_VN", timeZone: "Asia/Saigon" },
+      sheets: [
+        { properties: { title: "Bảng ôn tập", gridProperties: { frozenRowCount: 1 } } },
+        { properties: { title: "Bảng bài tập", gridProperties: { frozenRowCount: 1 } } },
+        { properties: { title: "Ghi chú", gridProperties: { frozenRowCount: 1 } } },
+        { properties: { title: "Cấu hình", gridProperties: { frozenRowCount: 1 } } }
+      ]
+    })
+  });
+  if (!rc.ok) throw new Error("create-sheet-" + rc.status);
+  const jc = await rc.json();
+  const id = jc.spreadsheetId;
+  const sheetIds = {};
+  (jc.sheets || []).forEach(function (sh) { sheetIds[sh.properties.title] = sh.properties.sheetId; });
+  const HEADERS = ["Chủ đề bài đã học", "Môn học", "Mức độ nhớ", "Ngày học", "Ôn lần cuối", "Số lần ôn", "Ngày ôn", "Trạng thái", "Đã ôn", "Nơi viết", "Ghi chú lỗi sai", "Đáp án / Gợi ý", "Ổn định S (ngày)", "Độ khó D (FSRS)", "% nhớ dự đoán", "", "Khoảng ôn FSRS (ngày)", "Lịch sử ôn", "Ảnh", "Tài liệu"];
+  function fG(r) { return "=IF(OR(A" + r + "=\"\";D" + r + "=\"\");\"\";IF(M" + r + "<>\"\";IF(E" + r + "=\"\";D" + r + ";E" + r + ")+Q" + r + ";IF(C" + r + "=\"\";\"\";IF(C" + r + "=\"Mới học\";D" + r + ";IFERROR(IF(E" + r + "=\"\";D" + r + ";E" + r + ")+INDEX('Cấu hình'!$B$2:$G$5;MATCH(C" + r + ";'Cấu hình'!$A$2:$A$5;0);MIN(MAX(N(F" + r + ");1);6));\"\")))))"; }
+  function fH(r) { return "=IF(A" + r + "=\"\";\"\";IF(I" + r + "=TRUE;\"Đã hoàn thành\";IF(G" + r + "=\"\";\"Chờ đặt lịch\";IF(G" + r + "<TODAY();\"Trễ hạn\";IF(G" + r + "=TODAY();\"Hôm nay cần ôn\";\"Chờ đặt lịch\")))))"; }
+  function fO(r) { return "=IF(A" + r + "=\"\";\"\";IF(M" + r + "<>\"\";POWER(1+'Cấu hình'!$J$3*MAX(0;TODAY()-IF(E" + r + "=\"\";D" + r + ";E" + r + "))/M" + r + ";-'Cấu hình'!$J$26);IF(G" + r + "=\"\";\"\";POWER(1+'Cấu hình'!$J$3*MAX(0;TODAY()-IF(E" + r + "=\"\";D" + r + ";E" + r + "))/MAX(1;G" + r + "-IF(E" + r + "=\"\";D" + r + ";E" + r + "));-'Cấu hình'!$J$26))))"; }
+  function fQ(r) { return "=IF(OR(A" + r + "=\"\";M" + r + "=\"\");\"\";MAX(1;MIN('Cấu hình'!$J$4;ROUND(M" + r + "/'Cấu hình'!$J$3*(POWER('Cấu hình'!$J$2;-1/'Cấu hình'!$J$26)-1);0))))"; }
+  function col(fn) { const a = []; for (let r = 2; r <= 200; r++) a.push([fn(r)]); return a; }
+  const CFG = [
+    ["Mức độ nhớ", "Lần ôn 1", "Lần ôn 2", "Lần ôn 3", "Lần ôn 4", "Lần ôn 5", "Lần ôn 6 trở lên", "", "", ""],
+    ["Rất khó", 1, 1, 2, 3, 3, 3, "", "Mục tiêu nhớ FSRS (retention)", 0.9],
+    ["Khó", 3, 5, 7, 10, 10, 10, "", "Hệ số FACTOR (tự tính từ w20)", "=POWER(9/10;-1/J26)-1"],
+    ["Bình thường", 7, 14, 21, 30, 30, 30, "", "Khoảng ôn tối đa (ngày) — trần an toàn", 90],
+    ["Dễ", 14, 30, 60, 90, 90, 90, "", "Tham số FSRS-6 mặc định", "Giá trị"]
+  ];
+  const W = [0.212, 1.2931, 2.3065, 8.2956, 6.4133, 0.8334, 3.0194, 0.001, 1.8722, 0.1666, 0.796, 1.4835, 0.0614, 0.2629, 1.6483, 0.6014, 1.8729, 0.5425, 0.0912, 0.0658, 0.1542];
+  const CFG_NOTES = { 7: "Đơn vị: số ngày đến lần ôn kế tiếp, tính từ cột Ôn lần cuối trong Bảng ôn tập (hoặc Ngày học nếu bài chưa ôn lần nào).", 8: "Chữ xanh là ô nhập: sửa số ở đây thì Ngày ôn tự tính lại.", 9: "Nguồn: công thức Ngày ôn mới trong Notion của người dùng (chụp màn hình ngày 8/11/2026).", 10: "Mức Mới học: Ngày ôn bằng Ngày học. Từ lần ôn thứ 4 trở đi khoảng cách không tăng thêm.", 12: "Tham số FSRS nằm ở cột I–K bên phải (J2 = Mục tiêu nhớ, J6:J26 = w0–w20). Bài nào đã có Ổn định S ở cột M thì tự chạy FSRS, chưa có thì vẫn chạy bảng cố định ở trên." };
+  W.forEach(function (w, i) { const r = i + 6; CFG.push([CFG_NOTES[r] || "", "", "", "", "", "", "", "", "w" + i, w]); });
+  const data = [];
+  ["Bảng ôn tập", "Bảng bài tập"].forEach(function (tab) {
+    data.push({ range: tab + "!A1:T1", values: [HEADERS] });
+    data.push({ range: tab + "!G2:G200", values: col(fG) });
+    data.push({ range: tab + "!H2:H200", values: col(fH) });
+    data.push({ range: tab + "!O2:O200", values: col(fO) });
+    data.push({ range: tab + "!Q2:Q200", values: col(fQ) });
+  });
+  data.push({ range: "Ghi chú!A1:C1", values: [["Thời gian", "Ghi chú", "Môn"]] });
+  data.push({ range: "Cấu hình!A1:J26", values: CFG });
+  const rv = await fetch("https://sheets.googleapis.com/v4/spreadsheets/" + id + "/values:batchUpdate", {
+    method: "POST", headers: hdr,
+    body: JSON.stringify({ valueInputOption: "USER_ENTERED", data: data })
+  });
+  if (!rv.ok) throw new Error("create-values-" + rv.status);
+  const requests = [];
+  ["Bảng ôn tập", "Bảng bài tập"].forEach(function (tab) {
+    const sid = sheetIds[tab];
+    requests.push({ setDataValidation: { range: { sheetId: sid, startRowIndex: 1, endRowIndex: 200, startColumnIndex: 1, endColumnIndex: 2 }, rule: { condition: { type: "ONE_OF_LIST", values: SUBJECTS.map(function (x) { return { userEnteredValue: x }; }) }, strict: true, showCustomUi: true } } });
+    requests.push({ setDataValidation: { range: { sheetId: sid, startRowIndex: 1, endRowIndex: 200, startColumnIndex: 2, endColumnIndex: 3 }, rule: { condition: { type: "ONE_OF_LIST", values: ["Mới học", "Rất khó", "Khó", "Bình thường", "Dễ"].map(function (x) { return { userEnteredValue: x }; }) }, strict: true, showCustomUi: true } } });
+    requests.push({ setDataValidation: { range: { sheetId: sid, startRowIndex: 1, endRowIndex: 200, startColumnIndex: 8, endColumnIndex: 9 }, rule: { condition: { type: "BOOLEAN" } } } });
+    requests.push({ repeatCell: { range: { sheetId: sid, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 20 }, cell: { userEnteredFormat: { textFormat: { bold: true } } }, fields: "userEnteredFormat.textFormat.bold" } });
+  });
+  requests.push({ repeatCell: { range: { sheetId: sheetIds["Ghi chú"], startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 3 }, cell: { userEnteredFormat: { textFormat: { bold: true } } }, fields: "userEnteredFormat.textFormat.bold" } });
+  requests.push({ repeatCell: { range: { sheetId: sheetIds["Cấu hình"], startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 10 }, cell: { userEnteredFormat: { textFormat: { bold: true } } }, fields: "userEnteredFormat.textFormat.bold" } });
+  const rb = await fetch("https://sheets.googleapis.com/v4/spreadsheets/" + id + ":batchUpdate", {
+    method: "POST", headers: hdr,
+    body: JSON.stringify({ requests: requests })
+  });
+  if (!rb.ok) throw new Error("create-format-" + rb.status);
+  try {
+    await fetch(DRIVE_API + "/" + id, { method: "PATCH", headers: hdr, body: JSON.stringify({ appProperties: { banghoc: "study-board" } }) });
+  } catch (e) {}
+  return id;
+}
 
 /* ===== Đọc Sheet ===== */
 function parseFiles(txt) {
@@ -2270,8 +2413,12 @@ async function fetchLessons(token) {
   return out;
 }
 async function refreshWithToken(token) {
+  const emailAtStart = currentEmail;
   try {
+    await ensureSheetId(token);
+    if (currentEmail !== emailAtStart) return;
     const data = await fetchLessons(token);
+    if (currentEmail !== emailAtStart) return;
     if (data.length) {
       lessons = data;
       saveCache(data);
@@ -2281,6 +2428,15 @@ async function refreshWithToken(token) {
       const si = document.getElementById("syncInfo");
       si.style.display = "";
       si.textContent = "Đã đồng bộ " + new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+    } else if (!loadCache()) {
+      lessons = [];
+      renderAll_Tabs(true);
+      hideNotice();
+      loadNotes(true);
+      if (sheetJustCreated) {
+        sheetJustCreated = false;
+        showToast("Đã tạo bảng riêng cho bạn 🎉 Bấm + Thêm bài mới để bắt đầu.");
+      }
     }
   } catch (e) {
     showNotice("Không đọc được Google Sheet lúc này (" + (e.message || e) + ") - đang hiện dữ liệu đã lưu.");
@@ -2479,7 +2635,7 @@ document.getElementById("addForm").addEventListener("submit", async function (ev
 
   let tok = await tokenOrSilent();
   if (!tok) {
-    try { tok = await signIn(); } catch (e) { fail("Cần đăng nhập Google bằng tài khoản chủ trước khi thêm bài."); return; }
+    try { tok = await signIn(); } catch (e) { fail("Cần đăng nhập Google trước khi thêm bài."); return; }
   }
   const btn = document.getElementById("fSubmit");
   btn.disabled = true; btn.textContent = "Đang lưu…";
