@@ -309,7 +309,12 @@
   .boardswitch{display:flex; gap:4px; width:100%; margin-top:12px; background:#E8EDF5; border-radius:14px; padding:4px}
   .boardswitch .boardbtn{flex:1; min-width:0; justify-content:center; font-weight:700; background:transparent; border:0; border-radius:10px; padding:9px 6px; white-space:nowrap}
   .boardswitch .boardbtn.active{background:#fff; color:var(--ink); box-shadow:0 2px 8px rgba(26,35,50,.13)}
-  body.board-ex .photogrid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+  body.board-ex .photogrid{display:flex; flex-direction:column; gap:12px}
+  body.board-ex .photogrid .ph{aspect-ratio:auto; min-height:110px}
+  body.board-ex .photogrid .ph img{width:100%; height:auto; object-fit:contain}
+  .workhead{width:100%; display:flex; align-items:center; gap:8px; background:none; border:none; padding:0; margin:0 0 8px; cursor:pointer; font:inherit; font-size:15px; font-weight:800; color:var(--ink); text-align:left}
+  .workhead .chev{margin-left:auto; color:var(--muted); font-size:14px; transition:transform .15s}
+  .workhead.open .chev{transform:rotate(90deg)}
   .dp-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px}
   .dp-head button{border:1px solid var(--line); background:#fff; border-radius:9px; width:36px; height:36px; font-size:18px; cursor:pointer}
   .dp-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:3px; text-align:center}
@@ -600,6 +605,16 @@
         <input type="file" id="fPhotoInput" accept="image/*" multiple hidden>
         <div id="fPhotoThumbs" style="display:flex;gap:8px;flex-wrap:wrap"></div>
       </div>
+      <div id="fWorkZone" style="display:none;flex-direction:column;gap:5px">
+        <span style="font-size:13.5px;font-weight:600;color:var(--muted)">Ảnh bài làm</span>
+        <div id="fWorkDrop" tabindex="0" role="button" style="display:flex;flex-direction:column;align-items:center;gap:4px;border:1.5px dashed var(--line);border-radius:12px;padding:16px 12px;background:#FBFCFE;cursor:pointer;text-align:center">
+          <span style="font-size:22px">✍️</span>
+          <span style="font-size:14px;font-weight:600;color:var(--ink)">Bấm để chụp hoặc chọn ảnh bài làm</span>
+          <span style="font-size:12.5px;color:var(--muted)">Ảnh chụp bài làm của bạn (không bắt buộc)</span>
+        </div>
+        <input type="file" id="fWorkInput" accept="image/*" multiple hidden>
+        <div id="fWorkThumbs" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+      </div>
       <label>Ghi chú lỗi sai
         <textarea id="fMistakes" rows="4" placeholder="Không bắt buộc"></textarea>
       </label>
@@ -758,6 +773,7 @@ function loadCache() {
       c.lessons.forEach(function (L) {
         if (!Array.isArray(L.images)) L.images = [];
         if (!Array.isArray(L.files)) L.files = [];
+        if (!Array.isArray(L.workImages)) L.workImages = [];
       });
       return c;
     }
@@ -1223,6 +1239,7 @@ function openDetail(row) {
   if (!L) return;
   if (!Array.isArray(L.images)) L.images = [];
   if (!Array.isArray(L.files)) L.files = [];
+  if (!Array.isArray(L.workImages)) L.workImages = [];
   const s = subjStyle(L.subject);
   const rc = recallNum(L);
   const stats = [
@@ -1248,13 +1265,10 @@ function openDetail(row) {
     sec("", "📍 Nơi viết / Câu hỏi gợi nhớ", L.notebook) +
     sec("answer", "💡 Đáp án / Gợi ý", L.answer) +
     sec("mistakes", "⚠️ Ghi chú lỗi sai", L.mistakes) +
-    '<div class="d-sec" id="photoSec"><h4>🖼️ Ảnh tài liệu (<span id="photoCount">0</span>)</h4><div class="photogrid" id="photoGrid"></div>' +
-    '<button class="btn" id="btnAddPhoto" type="button" style="width:100%;justify-content:center;margin-top:10px">📷 Thêm ảnh - chụp hoặc chọn từ máy</button>' +
+    '<div class="d-sec" id="photoSec"><h4>' + (board === "ex" ? "🖼️ Ảnh đề bài" : "🖼️ Ảnh tài liệu") + ' (<span id="photoCount">0</span>)</h4><div class="photogrid" id="photoGrid"></div>' +
+    '<button class="btn" id="btnAddPhoto" type="button" style="width:100%;justify-content:center;margin-top:10px">📷 ' + (board === "ex" ? "Thêm ảnh đề bài" : "Thêm ảnh") + ' - chụp hoặc chọn từ máy</button>' +
     '<input type="file" id="photoInput" accept="image/*" multiple hidden></div>' +
-    '<div class="d-sec"><h4>📎 File bài làm (<span id="fileCount">0</span>)</h4><div id="fileList"></div>' +
-    '<button class="btn" id="btnAddFile" type="button" style="width:100%;justify-content:center;margin-top:10px">📎 Thêm file PDF</button>' +
-    '<input type="file" id="fileInput" accept=".pdf,application/pdf" multiple hidden>' +
-    '<div style="font-size:12.5px;color:var(--muted);margin-top:8px">PDF xem được ngay trên web, cuộn dọc xem hết các trang. Bài làm viết trong Xournal++ thì xuất ra PDF (File → Export as PDF) rồi đăng file PDF đó lên đây.</div></div>' +
+    (board === "ex" ? workSectionHTML() : fileSectionHTML()) +
     '<div class="d-sec"><h4>🕘 Lịch sử ôn</h4><div class="hist" style="margin-top:0">' + esc(L.history || "Chưa có lịch sử ôn.") + '</div></div></div>' +
     '<div class="reviewbox detail-actions">' +
       '<button class="btn" id="btnEdit" type="button">✏️ Sửa thông tin bài</button>' +
@@ -1280,6 +1294,8 @@ function openDetail(row) {
     const photoSec = document.getElementById("photoSec");
     const firstSec = vb && vb.querySelector(".d-sec");
     if (vb && photoSec && firstSec && photoSec !== firstSec) vb.insertBefore(photoSec, firstSec);
+    const workSec = document.getElementById("workSec");
+    if (workSec && photoSec) photoSec.after(workSec);
   }
   renderPhotos(L);
   document.getElementById("btnAddPhoto").addEventListener("click", function () { document.getElementById("photoInput").click(); });
@@ -1287,6 +1303,20 @@ function openDetail(row) {
   renderFiles(L);
   document.getElementById("btnAddFile").addEventListener("click", function () { document.getElementById("fileInput").click(); });
   document.getElementById("fileInput").addEventListener("change", function () { uploadFiles(L, this.files); this.value = ""; });
+  if (board === "ex") {
+    renderWorkPhotos(L);
+    const wt = document.getElementById("workToggle");
+    const wb = document.getElementById("workBody");
+    if (wt && wb) wt.addEventListener("click", function () {
+      const open = wb.style.display === "none";
+      wb.style.display = open ? "" : "none";
+      wt.classList.toggle("open", open);
+    });
+    const bw = document.getElementById("btnAddWorkPhoto");
+    if (bw) bw.addEventListener("click", function () { document.getElementById("workPhotoInput").click(); });
+    const wi = document.getElementById("workPhotoInput");
+    if (wi) wi.addEventListener("change", function () { uploadWorkPhotos(L, this.files); this.value = ""; });
+  }
   document.getElementById("ePreviewBtn").addEventListener("click", function () {
     toggleLessonPreview("ePreview", document.getElementById("eMistakes").value, document.getElementById("eAnswer").value, this, "👀 Xem trước", document.getElementById("eNotebook").value);
   });
@@ -1617,6 +1647,104 @@ function renderPhotos(L) {
     });
   });
 }
+function fileSectionHTML() {
+  return '<div class="d-sec"><h4>📎 File bài làm (<span id="fileCount">0</span>)</h4><div id="fileList"></div>' +
+    '<button class="btn" id="btnAddFile" type="button" style="width:100%;justify-content:center;margin-top:10px">📎 Thêm file PDF</button>' +
+    '<input type="file" id="fileInput" accept=".pdf,application/pdf" multiple hidden>' +
+    '<div style="font-size:12.5px;color:var(--muted);margin-top:8px">PDF xem được ngay trên web, cuộn dọc xem hết các trang. Bài làm viết trong Xournal++ thì xuất ra PDF (File → Export as PDF) rồi đăng file PDF đó lên đây.</div></div>';
+}
+function workSectionHTML() {
+  return '<div class="d-sec" id="workSec"><button class="workhead" id="workToggle" type="button">✍️ Bài làm <span id="workCount" style="font-weight:600;color:var(--muted);font-size:13.5px"></span><span class="chev">▸</span></button>' +
+    '<div id="workBody" style="display:none">' +
+    '<div class="photogrid" id="workGrid"></div>' +
+    '<button class="btn" id="btnAddWorkPhoto" type="button" style="width:100%;justify-content:center;margin-top:10px">📷 Thêm ảnh bài làm - chụp hoặc chọn từ máy</button>' +
+    '<input type="file" id="workPhotoInput" accept="image/*" multiple hidden>' +
+    '<div id="fileList" style="margin-top:14px"></div>' +
+    '<button class="btn" id="btnAddFile" type="button" style="width:100%;justify-content:center;margin-top:10px">📎 Thêm file PDF</button>' +
+    '<input type="file" id="fileInput" accept=".pdf,application/pdf" multiple hidden>' +
+    '<div style="font-size:12.5px;color:var(--muted);margin-top:8px">PDF xem được ngay trên web, cuộn dọc xem hết các trang. Bài làm viết trong Xournal++ thì xuất ra PDF (File → Export as PDF) rồi đăng file PDF đó lên đây.</div>' +
+    '</div></div>';
+}
+function workSummary(L) {
+  const a = Array.isArray(L.workImages) ? L.workImages.length : 0;
+  const f = Array.isArray(L.files) ? L.files.length : 0;
+  if (!a && !f) return "(trống)";
+  const parts = [];
+  if (a) parts.push(a + " ảnh");
+  if (f) parts.push(f + " file");
+  return "(" + parts.join(" · ") + ")";
+}
+function updateWorkCount(L) { const wc = document.getElementById("workCount"); if (wc) wc.textContent = workSummary(L); }
+function renderWorkPhotos(L) {
+  if (!Array.isArray(L.workImages)) L.workImages = [];
+  updateWorkCount(L);
+  const grid = document.getElementById("workGrid");
+  if (!grid) return;
+  if (!L.workImages.length) {
+    grid.innerHTML = '<div style="font-size:14px;color:var(--muted)">Chưa có ảnh bài làm. Chụp bài làm của bạn đăng lên đây, hoặc thêm file PDF ở dưới.</div>';
+    return;
+  }
+  grid.innerHTML = L.workImages.map(function (id, i) {
+    return '<button type="button" class="ph" data-i="' + i + '"><span class="phnum">' + (i + 1) + '</span><span class="phload">⏳</span><img alt="Ảnh bài làm ' + (i + 1) + '" style="display:none"></button>';
+  }).join("");
+  grid.querySelectorAll(".ph").forEach(function (b) {
+    const i = Number(b.getAttribute("data-i"));
+    const id = L.workImages[i];
+    b.addEventListener("click", function () { openImg(L, i, "work"); });
+    fetchImgObjectUrl(id).then(function (u) {
+      const img = b.querySelector("img");
+      const ld = b.querySelector(".phload");
+      if (ld) ld.remove();
+      img.src = u; img.style.display = "";
+    }).catch(function () {
+      const ld = b.querySelector(".phload");
+      if (ld) ld.textContent = "🔐";
+    });
+  });
+}
+async function saveWorkPhotoIds(L) {
+  const tok = await tokenOrSilent();
+  if (!tok) throw new Error("no-token");
+  const range = SR_TAB + "!U" + L.row;
+  const r = await fetch(SHEETS_API + encodeURIComponent(range) + "?valueInputOption=USER_ENTERED", {
+    method: "PUT",
+    headers: { Authorization: "Bearer " + tok, "Content-Type": "application/json" },
+    body: JSON.stringify({ range: range, majorDimension: "ROWS", values: [[L.workImages.join(",")]] })
+  });
+  if (!r.ok) throw new Error("sheet-save-" + r.status);
+}
+async function uploadWorkPhotos(L, fileList) {
+  const files = Array.prototype.slice.call(fileList || []);
+  if (!files.length) return;
+  const btn = document.getElementById("btnAddWorkPhoto");
+  const oldLabel = btn ? btn.textContent : "";
+  if (btn) { btn.disabled = true; }
+  try {
+    let tok = await tokenOrSilent();
+    if (!tok) { showToast("Cần đăng nhập Google để thêm ảnh - bấm nút Đăng nhập ở đầu trang rồi thử lại."); return; }
+    let folderId;
+    try { folderId = await ensurePhotoFolder(tok); }
+    catch (e) {
+      clearToken();
+      tok = await signIn();
+      folderId = await ensurePhotoFolder(tok);
+    }
+    const base = L.workImages.slice();
+    const ids = await uploadPhotoList(tok, folderId, files, L.topic + " - bài làm", function (done, total, partial) {
+      if (btn) btn.textContent = "⏳ Đang tải ảnh " + done + "/" + total + "…";
+      L.workImages = base.concat(partial.filter(Boolean));
+      renderWorkPhotos(L);
+    });
+    L.workImages = base.concat(ids);
+    const done = ids.length;
+    await saveWorkPhotoIds(L);
+    showToast("Đã thêm " + done + " ảnh bài làm 📷");
+  } catch (e) {
+    showToast("Chưa thêm được ảnh: " + (e.message || e));
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = oldLabel; }
+  }
+}
 async function ensurePhotoFolder(tok) {
   try { const saved = localStorage.getItem(userKey("sb-drive-folder")) || (currentEmail === OWNER_EMAIL_SR ? localStorage.getItem("sb-drive-folder") : null); if (saved) return saved; } catch (e) {}
   const q = encodeURIComponent("name='BangHoc-Anh' and mimeType='application/vnd.google-apps.folder' and trashed=false");
@@ -1798,6 +1926,7 @@ function renderFiles(L) {
   if (!Array.isArray(L.files)) L.files = [];
   const cnt = document.getElementById("fileCount");
   if (cnt) cnt.textContent = L.files.length;
+  updateWorkCount(L);
   const box = document.getElementById("fileList");
   if (!box) return;
   if (!L.files.length) {
@@ -2073,11 +2202,12 @@ function wireImgZoom() {
   if (zo) zo.addEventListener("click", function () { imgZoom.s = Math.max(1, imgZoom.s / 1.3); clampImgZoom(); applyImgZoom(); });
   if (zr) zr.addEventListener("click", function () { imgZoom.s = 1; imgZoom.tx = 0; imgZoom.ty = 0; applyImgZoom(); });
 }
-function openImg(L, idx) {
-  const id = L.images[idx];
+function openImg(L, idx, kind) {
+  const list = kind === "work" ? (L.workImages || []) : L.images;
+  const id = list[idx];
   if (!id) return;
-  currentImg = { lesson: L, id: id };
-  document.getElementById("imgTitle").textContent = "Ảnh " + (idx + 1) + "/" + L.images.length + " - " + L.topic;
+  currentImg = { lesson: L, id: id, kind: kind || "doc" };
+  document.getElementById("imgTitle").textContent = (kind === "work" ? "Ảnh bài làm " : "Ảnh ") + (idx + 1) + "/" + list.length + " - " + L.topic;
   const wrap = document.getElementById("imgFrameWrap");
   wrap.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px 0">⏳ Đang tải ảnh…</div>';
   const dl = document.getElementById("imgDownload");
@@ -2100,7 +2230,7 @@ function openImg(L, idx) {
     if (!currentImg || currentImg.id !== id) return;
     wrap.innerHTML = '<div style="text-align:center;padding:34px 10px"><div style="font-size:15px;margin-bottom:12px">Web cần đăng nhập Google để tải ảnh này.</div><button class="btn primary" id="imgSignIn" type="button" style="justify-content:center">Đăng nhập Google</button></div>';
     document.getElementById("imgSignIn").addEventListener("click", async function () {
-      try { await signIn(); openImg(L, idx); } catch (e) { showToast("Đăng nhập chưa thành công."); }
+      try { await signIn(); openImg(L, idx, kind); } catch (e) { showToast("Đăng nhập chưa thành công."); }
     });
   });
 }
@@ -2113,16 +2243,18 @@ async function deleteCurrentImg() {
   if (!currentImg) return;
   if (!confirm("Xoá ảnh này khỏi bài? Ảnh cũng sẽ bị xoá khỏi Google Drive.")) return;
   const L = currentImg.lesson, id = currentImg.id;
-  const old = L.images.slice();
-  L.images = L.images.filter(function (x) { return x !== id; });
-  try { await savePhotoIds(L); }
-  catch (e) { L.images = old; showToast("Chưa xoá được: " + (e.message || e)); return; }
+  const isWork = currentImg.kind === "work";
+  const key = isWork ? "workImages" : "images";
+  const old = L[key].slice();
+  L[key] = L[key].filter(function (x) { return x !== id; });
+  try { await (isWork ? saveWorkPhotoIds(L) : savePhotoIds(L)); }
+  catch (e) { L[key] = old; showToast("Chưa xoá được: " + (e.message || e)); return; }
   try {
     const tok = await tokenOrSilent();
     if (tok) await fetch(DRIVE_API + "/" + id, { method: "DELETE", headers: { Authorization: "Bearer " + tok } });
   } catch (e) {}
   closeImg();
-  renderPhotos(L);
+  if (isWork) renderWorkPhotos(L); else renderPhotos(L);
   showToast("Đã xoá ảnh.");
 }
 function toggleLessonPreview(pvId, mistakes, answer, btn, label, question) {
@@ -2430,7 +2562,7 @@ async function createUserSheet(tok) {
   const id = jc.spreadsheetId;
   const sheetIds = {};
   (jc.sheets || []).forEach(function (sh) { sheetIds[sh.properties.title] = sh.properties.sheetId; });
-  const HEADERS = ["Chủ đề bài đã học", "Môn học", "Mức độ nhớ", "Ngày học", "Ôn lần cuối", "Số lần ôn", "Ngày ôn", "Trạng thái", "Đã ôn", "Nơi viết", "Ghi chú lỗi sai", "Đáp án / Gợi ý", "Ổn định S (ngày)", "Độ khó D (FSRS)", "% nhớ dự đoán", "", "Khoảng ôn FSRS (ngày)", "Lịch sử ôn", "Ảnh", "Tài liệu"];
+  const HEADERS = ["Chủ đề bài đã học", "Môn học", "Mức độ nhớ", "Ngày học", "Ôn lần cuối", "Số lần ôn", "Ngày ôn", "Trạng thái", "Đã ôn", "Nơi viết", "Ghi chú lỗi sai", "Đáp án / Gợi ý", "Ổn định S (ngày)", "Độ khó D (FSRS)", "% nhớ dự đoán", "", "Khoảng ôn FSRS (ngày)", "Lịch sử ôn", "Ảnh", "Tài liệu", "Ảnh bài làm"];
   function fG(r) { return "=IF(OR(A" + r + "=\"\";D" + r + "=\"\");\"\";IF(M" + r + "<>\"\";IF(E" + r + "=\"\";D" + r + ";E" + r + ")+Q" + r + ";IF(C" + r + "=\"\";\"\";IF(C" + r + "=\"Mới học\";D" + r + ";IFERROR(IF(E" + r + "=\"\";D" + r + ";E" + r + ")+INDEX('Cấu hình'!$B$2:$G$5;MATCH(C" + r + ";'Cấu hình'!$A$2:$A$5;0);MIN(MAX(N(F" + r + ");1);6));\"\")))))"; }
   function fH(r) { return "=IF(A" + r + "=\"\";\"\";IF(I" + r + "=TRUE;\"Đã hoàn thành\";IF(G" + r + "=\"\";\"Chờ đặt lịch\";IF(G" + r + "<TODAY();\"Trễ hạn\";IF(G" + r + "=TODAY();\"Hôm nay cần ôn\";\"Chờ đặt lịch\")))))"; }
   function fO(r) { return "=IF(A" + r + "=\"\";\"\";IF(M" + r + "<>\"\";POWER(1+'Cấu hình'!$J$3*MAX(0;TODAY()-IF(E" + r + "=\"\";D" + r + ";E" + r + "))/M" + r + ";-'Cấu hình'!$J$26);IF(G" + r + "=\"\";\"\";POWER(1+'Cấu hình'!$J$3*MAX(0;TODAY()-IF(E" + r + "=\"\";D" + r + ";E" + r + "))/MAX(1;G" + r + "-IF(E" + r + "=\"\";D" + r + ";E" + r + "));-'Cấu hình'!$J$26))))"; }
@@ -2467,7 +2599,7 @@ async function createUserSheet(tok) {
     requests.push({ setDataValidation: { range: { sheetId: sid, startRowIndex: 1, endRowIndex: 200, startColumnIndex: 1, endColumnIndex: 2 }, rule: { condition: { type: "ONE_OF_LIST", values: SUBJECTS.map(function (x) { return { userEnteredValue: x }; }) }, strict: true, showCustomUi: true } } });
     requests.push({ setDataValidation: { range: { sheetId: sid, startRowIndex: 1, endRowIndex: 200, startColumnIndex: 2, endColumnIndex: 3 }, rule: { condition: { type: "ONE_OF_LIST", values: ["Mới học", "Rất khó", "Khó", "Bình thường", "Dễ"].map(function (x) { return { userEnteredValue: x }; }) }, strict: true, showCustomUi: true } } });
     requests.push({ setDataValidation: { range: { sheetId: sid, startRowIndex: 1, endRowIndex: 200, startColumnIndex: 8, endColumnIndex: 9 }, rule: { condition: { type: "BOOLEAN" } } } });
-    requests.push({ repeatCell: { range: { sheetId: sid, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 20 }, cell: { userEnteredFormat: { textFormat: { bold: true } } }, fields: "userEnteredFormat.textFormat.bold" } });
+    requests.push({ repeatCell: { range: { sheetId: sid, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 21 }, cell: { userEnteredFormat: { textFormat: { bold: true } } }, fields: "userEnteredFormat.textFormat.bold" } });
     [[3, "DATE", "dd/mm/yyyy"], [4, "DATE", "dd/mm/yyyy"], [6, "DATE", "dd/mm/yyyy"], [12, "NUMBER", "0.00"], [13, "NUMBER", "0.00"], [14, "PERCENT", "0%"], [16, "NUMBER", "0"]].forEach(function (f) {
       requests.push({ repeatCell: { range: { sheetId: sid, startRowIndex: 1, endRowIndex: 200, startColumnIndex: f[0], endColumnIndex: f[0] + 1 }, cell: { userEnteredFormat: { numberFormat: { type: f[1], pattern: f[2] } } }, fields: "userEnteredFormat.numberFormat" } });
     });
@@ -2503,11 +2635,12 @@ function rowToLesson(row, rowNum) {
     notebook: g(9), mistakes: g(10), answer: g(11), S: g(12), D: g(13),
     recall: g(14), interval: g(16), history: g(17),
     images: g(18) ? g(18).split(",").map(function (x) { return x.trim(); }).filter(Boolean) : [],
-    files: parseFiles(g(19))
+    files: parseFiles(g(19)),
+    workImages: g(20) ? g(20).split(",").map(function (x) { return x.trim(); }).filter(Boolean) : []
   };
 }
 async function fetchLessons(token) {
-  const range = encodeURIComponent(SR_TAB + "!A1:T200");
+  const range = encodeURIComponent(SR_TAB + "!A1:U200");
   const r = await fetch(SHEETS_API + range, { headers: { Authorization: "Bearer " + token } });
   if (!r.ok) throw new Error("HTTP " + r.status);
   const j = await r.json();
@@ -2599,7 +2732,47 @@ async function uploadAddPhotos(rowNum, topic, tok) {
   if (!r.ok) throw new Error("sheet-save-" + r.status);
   return ids.length;
 }
+let addWorkFiles = [];
+function renderAddWorkThumbs() {
+  const box = document.getElementById("fWorkThumbs");
+  if (!box) return;
+  box.querySelectorAll("img").forEach(function (im) { URL.revokeObjectURL(im.src); });
+  box.innerHTML = "";
+  addWorkFiles.forEach(function (f, i) {
+    const url = URL.createObjectURL(f);
+    const d = document.createElement("div");
+    d.style.cssText = "position:relative;width:72px;height:72px;border-radius:10px;overflow:hidden;border:1px solid var(--line);flex:none";
+    d.innerHTML = '<img src="' + url + '" style="width:100%;height:100%;object-fit:cover;display:block">' +
+      '<button type="button" data-i="' + i + '" style="position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;border:0;background:rgba(17,24,39,.75);color:#fff;font-size:11px;cursor:pointer">✕</button>';
+    d.querySelector("button").addEventListener("click", function () { addWorkFiles.splice(i, 1); renderAddWorkThumbs(); });
+    box.appendChild(d);
+  });
+}
+function queueAddWorkPhotos(files) {
+  const list = Array.prototype.slice.call(files || []).filter(function (f) { return f && f.type && f.type.indexOf("image/") === 0; });
+  if (!list.length) return false;
+  addWorkFiles = addWorkFiles.concat(list);
+  renderAddWorkThumbs();
+  return true;
+}
+async function uploadAddWorkPhotos(rowNum, topic, tok) {
+  const files = addWorkFiles.slice();
+  if (!files.length) return 0;
+  const folderId = await ensurePhotoFolder(tok);
+  const ids = await uploadPhotoList(tok, folderId, files, topic + " - bài làm", null);
+  const range = SR_TAB + "!U" + rowNum;
+  const r = await fetch(SHEETS_API + encodeURIComponent(range) + "?valueInputOption=USER_ENTERED", {
+    method: "PUT",
+    headers: { Authorization: "Bearer " + tok, "Content-Type": "application/json" },
+    body: JSON.stringify({ range: range, majorDimension: "ROWS", values: [[ids.join(",")]] })
+  });
+  if (!r.ok) throw new Error("sheet-save-" + r.status);
+  return ids.length;
+}
 document.getElementById("fPhotoInput").addEventListener("change", function () { queueAddPhotos(this.files); this.value = ""; });
+document.getElementById("fWorkInput").addEventListener("change", function () { queueAddWorkPhotos(this.files); this.value = ""; });
+document.getElementById("fWorkDrop").addEventListener("click", function () { document.getElementById("fWorkInput").click(); });
+document.getElementById("fWorkDrop").addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); document.getElementById("fWorkInput").click(); } });
 document.getElementById("fPhotoDrop").addEventListener("click", function () { document.getElementById("fPhotoInput").click(); });
 document.getElementById("fPhotoDrop").addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); document.getElementById("fPhotoInput").click(); } });
 addOverlay.addEventListener("paste", function (e) {
@@ -2623,8 +2796,11 @@ function openAdd() {
   document.getElementById("fDate").value = toDMY(iso);
   document.getElementById("fGrade").value = "Mới học";
   addPhotoFiles = []; renderAddPhotoThumbs();
+  addWorkFiles = []; renderAddWorkThumbs();
   const pz = document.getElementById("fPhotoZone");
   if (pz) pz.style.display = board === "ex" ? "flex" : "none";
+  const wz = document.getElementById("fWorkZone");
+  if (wz) wz.style.display = board === "ex" ? "flex" : "none";
   const ft = document.getElementById("fTopic");
   const ftt = document.getElementById("fTopicLabelText");
   if (ft) { ft.required = board !== "ex"; ft.placeholder = board === "ex" ? "Không bắt buộc - để trống web tự đặt tên" : "Tên bài học"; }
@@ -2781,6 +2957,16 @@ document.getElementById("addForm").addEventListener("submit", async function (ev
         photoNote = " (chưa tải được ảnh đề bài: " + (e2.message || e2) + ")";
       }
       addPhotoFiles = []; renderAddPhotoThumbs();
+    }
+    if (addWorkFiles.length) {
+      btn.textContent = "Đang tải ảnh bài làm…";
+      try {
+        const nw = await uploadAddWorkPhotos(rowNum, topic, tok);
+        photoNote += " + " + nw + " ảnh bài làm";
+      } catch (e3) {
+        photoNote += " (chưa tải được ảnh bài làm: " + (e3.message || e3) + ")";
+      }
+      addWorkFiles = []; renderAddWorkThumbs();
     }
     closeAdd();
     document.getElementById("addForm").reset();
