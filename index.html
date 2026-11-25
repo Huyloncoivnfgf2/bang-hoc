@@ -319,6 +319,8 @@
   .dp-grid button.sel{background:var(--accent); color:#fff; font-weight:700}
   .dp-grid button.today{box-shadow:inset 0 0 0 2px var(--accent)}
   .photogrid .ph img{width:100%; height:100%; object-fit:cover; display:block}
+  #fPhotoDrop:focus{outline:2px solid var(--accent); outline-offset:2px}
+  #fPhotoDrop:focus:not(:focus-visible){outline:none}
 
   /* Điện thoại: thanh tab vừa khít màn hình, không tràn ngang */
   @media(max-width:640px){
@@ -585,9 +587,19 @@
       <label>Ngày học
         <span style="display:flex;gap:8px"><input id="fDate" type="text" inputmode="numeric" placeholder="25/11/2026" autocomplete="off" required style="flex:1;min-width:0"><button class="btn" id="fDateCal" type="button" aria-label="Chọn ngày">📅</button></span>
       </label>
-      <label>Nơi viết
-        <input id="fNotebook" type="text" placeholder="Vở, giấy, máy… (không bắt buộc)">
+      <label id="fNotebookLabel"><span style="display:flex;align-items:center;gap:6px"><span id="fNotebookLabelText">Nơi viết</span><button class="btn small" id="fMathBtn" type="button" title="Chèn công thức $...$" style="margin-left:auto;padding:3px 10px;font-size:12.5px">∑ Math</button></span>
+        <textarea id="fNotebook" rows="3" placeholder="Vở, giấy, máy… (không bắt buộc)"></textarea>
       </label>
+      <div id="fPhotoZone" style="display:none;flex-direction:column;gap:5px">
+        <span style="font-size:13.5px;font-weight:600;color:var(--muted)">Ảnh đề bài</span>
+        <div id="fPhotoDrop" tabindex="0" role="button" style="display:flex;flex-direction:column;align-items:center;gap:4px;border:1.5px dashed var(--line);border-radius:12px;padding:16px 12px;background:#FBFCFE;cursor:pointer;text-align:center">
+          <span style="font-size:22px">📷</span>
+          <span style="font-size:14px;font-weight:600;color:var(--ink)">Bấm để chụp hoặc chọn ảnh đề bài</span>
+          <span style="font-size:12.5px;color:var(--muted)">Trên máy tính: chụp màn hình rồi dán ảnh vào đây (Ctrl+V)</span>
+        </div>
+        <input type="file" id="fPhotoInput" accept="image/*" multiple hidden>
+        <div id="fPhotoThumbs" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+      </div>
       <label>Ghi chú lỗi sai
         <textarea id="fMistakes" rows="4" placeholder="Không bắt buộc"></textarea>
       </label>
@@ -1981,13 +1993,17 @@ async function deleteCurrentImg() {
   renderPhotos(L);
   showToast("Đã xoá ảnh.");
 }
-function toggleLessonPreview(pvId, mistakes, answer, btn, label) {
+function toggleLessonPreview(pvId, mistakes, answer, btn, label, question) {
   const pv = document.getElementById(pvId);
   if (!pv) return;
   if (pv.style.display !== "none" && pv.innerHTML) { pv.style.display = "none"; btn.textContent = label; return; }
-  pv.innerHTML =
-    '<div style="font-weight:700;margin-bottom:4px">Ghi chú lỗi sai</div><div class="mathcell">' + esc(mistakes || "-") + '</div>' +
-    '<div style="font-weight:700;margin:12px 0 4px">Đáp án / Gợi ý</div><div class="mathcell">' + esc(answer || "-") + '</div>';
+  const secs = [];
+  if (question) secs.push(["Đề bài / Câu hỏi gợi nhớ", question]);
+  secs.push(["Ghi chú lỗi sai", mistakes || "-"]);
+  secs.push(["Đáp án / Gợi ý", answer || "-"]);
+  pv.innerHTML = secs.map(function (s2, i) {
+    return '<div style="font-weight:700;margin:' + (i ? '12px' : '0') + ' 0 4px">' + s2[0] + '</div><div class="mathcell">' + esc(s2[1]) + '</div>';
+  }).join("");
   pv.style.display = "";
   btn.textContent = "🙈 Ẩn xem trước";
   typesetWhenReady(pv);
@@ -2281,12 +2297,79 @@ document.getElementById("btnRefresh").addEventListener("click", async function (
 
 /* ===== Thêm bài mới → ghi vào tab Bảng ôn tập ===== */
 const addOverlay = document.getElementById("addOverlay");
+/* Ảnh đề bài khi thêm câu sai (chỉ bảng bài tập): điện thoại bấm để chụp/chọn, máy tính dán ảnh */
+let addPhotoFiles = [];
+function renderAddPhotoThumbs() {
+  const box = document.getElementById("fPhotoThumbs");
+  if (!box) return;
+  box.querySelectorAll("img").forEach(function (im) { URL.revokeObjectURL(im.src); });
+  box.innerHTML = "";
+  addPhotoFiles.forEach(function (f, i) {
+    const url = URL.createObjectURL(f);
+    const d = document.createElement("div");
+    d.style.cssText = "position:relative;width:72px;height:72px;border-radius:10px;overflow:hidden;border:1px solid var(--line);flex:none";
+    d.innerHTML = '<img src="' + url + '" style="width:100%;height:100%;object-fit:cover;display:block">' +
+      '<button type="button" data-i="' + i + '" style="position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;border:0;background:rgba(17,24,39,.75);color:#fff;font-size:11px;cursor:pointer">✕</button>';
+    d.querySelector("button").addEventListener("click", function () { addPhotoFiles.splice(i, 1); renderAddPhotoThumbs(); });
+    box.appendChild(d);
+  });
+}
+function queueAddPhotos(files) {
+  const list = Array.prototype.slice.call(files || []).filter(function (f) { return f && f.type && f.type.indexOf("image/") === 0; });
+  if (!list.length) return false;
+  addPhotoFiles = addPhotoFiles.concat(list);
+  renderAddPhotoThumbs();
+  return true;
+}
+async function uploadAddPhotos(rowNum, topic, tok) {
+  const files = addPhotoFiles.slice();
+  if (!files.length) return 0;
+  const folderId = await ensurePhotoFolder(tok);
+  const ids = [];
+  for (const f of files) {
+    const blob = await compressImage(f);
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    ids.push(await uploadOnePhoto(tok, folderId, blob, topic + " - " + stamp + ".jpg"));
+  }
+  const range = SR_TAB + "!S" + rowNum;
+  const r = await fetch(SHEETS_API + encodeURIComponent(range) + "?valueInputOption=USER_ENTERED", {
+    method: "PUT",
+    headers: { Authorization: "Bearer " + tok, "Content-Type": "application/json" },
+    body: JSON.stringify({ range: range, majorDimension: "ROWS", values: [[ids.join(",")]] })
+  });
+  if (!r.ok) throw new Error("sheet-save-" + r.status);
+  return ids.length;
+}
+document.getElementById("fPhotoInput").addEventListener("change", function () { queueAddPhotos(this.files); this.value = ""; });
+document.getElementById("fPhotoDrop").addEventListener("click", function () { document.getElementById("fPhotoInput").click(); });
+document.getElementById("fPhotoDrop").addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); document.getElementById("fPhotoInput").click(); } });
+addOverlay.addEventListener("paste", function (e) {
+  if (!addOverlay.classList.contains("open") || board !== "ex") return;
+  const items = (e.clipboardData && e.clipboardData.items) || [];
+  const imgs = [];
+  for (let i = 0; i < items.length; i++) { if (items[i].type && items[i].type.indexOf("image/") === 0) { const f = items[i].getAsFile(); if (f) imgs.push(f); } }
+  if (imgs.length) { e.preventDefault(); queueAddPhotos(imgs); showToast("Đã dán " + imgs.length + " ảnh đề bài 📷"); }
+});
+document.getElementById("fMathBtn").addEventListener("click", function () {
+  const ta = document.getElementById("fNotebook");
+  const start = ta.selectionStart || 0, end = ta.selectionEnd || 0;
+  ta.value = ta.value.slice(0, start) + "$ $" + ta.value.slice(end);
+  ta.focus();
+  ta.setSelectionRange(start + 2, start + 2);
+});
 function openAdd() {
   document.getElementById("fError").classList.remove("show");
   const d = new Date();
   const iso = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
   document.getElementById("fDate").value = toDMY(iso);
   document.getElementById("fGrade").value = "Mới học";
+  addPhotoFiles = []; renderAddPhotoThumbs();
+  const pz = document.getElementById("fPhotoZone");
+  if (pz) pz.style.display = board === "ex" ? "flex" : "none";
+  const nlt = document.getElementById("fNotebookLabelText");
+  if (nlt) nlt.textContent = board === "ex" ? "Đề bài" : "Nơi viết";
+  const nb = document.getElementById("fNotebook");
+  if (nb) nb.placeholder = board === "ex" ? "Gõ đề bài, có thể dùng LaTeX $...$ (không bắt buộc)" : "Vở, giấy, máy… (không bắt buộc)";
   addOverlay.classList.add("open");
 }
 function closeAdd() { addOverlay.classList.remove("open"); }
@@ -2424,9 +2507,20 @@ document.getElementById("addForm").addEventListener("submit", async function (ev
       const t = await r2.text();
       throw new Error("HTTP " + r2.status + " " + t.slice(0, 160));
     }
+    let photoNote = "";
+    if (addPhotoFiles.length) {
+      btn.textContent = "Đang tải ảnh đề…";
+      try {
+        const n = await uploadAddPhotos(rowNum, topic, tok);
+        photoNote = " + " + n + " ảnh đề bài";
+      } catch (e2) {
+        photoNote = " (chưa tải được ảnh đề bài: " + (e2.message || e2) + ")";
+      }
+      addPhotoFiles = []; renderAddPhotoThumbs();
+    }
     closeAdd();
     document.getElementById("addForm").reset();
-    showToast("Đã thêm vào Bảng ôn tập ✔");
+    showToast("Đã thêm vào " + SR_TAB + " ✔" + photoNote);
     refreshWithToken(tok);
   } catch (e) {
     fail("Không lưu được: " + (e.message || e));
@@ -2467,7 +2561,7 @@ if (_gb) _gb.addEventListener("click", async function () {
   document.getElementById("imgOverlay").addEventListener("click", function (e) { if (e.target === this) closeImg(); });
   document.getElementById("imgDelete").addEventListener("click", deleteCurrentImg);
   document.getElementById("fPreviewBtn").addEventListener("click", function () {
-    toggleLessonPreview("fPreview", document.getElementById("fMistakes").value, document.getElementById("fAnswer").value, this, "👀 Xem trước lỗi sai & đáp án");
+    toggleLessonPreview("fPreview", document.getElementById("fMistakes").value, document.getElementById("fAnswer").value, this, "👀 Xem trước", document.getElementById("fNotebook").value);
   });
   renderNoteFilterChips();
   loadNotesCache();
