@@ -4,9 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bảng học Spaced Repetition</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
@@ -14,12 +11,33 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <style>
+  /* ===== Taste: Be Vietnam Pro tự host (không dùng Google Fonts link) ===== */
+  @font-face{font-family:"Be Vietnam Pro"; font-style:normal; font-weight:400; font-display:swap; src:url("fonts/be-vietnam-pro-vietnamese-400.woff2") format("woff2"); unicode-range:U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB}
+  @font-face{font-family:"Be Vietnam Pro"; font-style:normal; font-weight:400; font-display:swap; src:url("fonts/be-vietnam-pro-latin-ext-400.woff2") format("woff2"); unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF}
+  @font-face{font-family:"Be Vietnam Pro"; font-style:normal; font-weight:400; font-display:swap; src:url("fonts/be-vietnam-pro-latin-400.woff2") format("woff2"); unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
+  @font-face{font-family:"Be Vietnam Pro"; font-style:normal; font-weight:500; font-display:swap; src:url("fonts/be-vietnam-pro-vietnamese-500.woff2") format("woff2"); unicode-range:U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB}
+  @font-face{font-family:"Be Vietnam Pro"; font-style:normal; font-weight:500; font-display:swap; src:url("fonts/be-vietnam-pro-latin-ext-500.woff2") format("woff2"); unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF}
+  @font-face{font-family:"Be Vietnam Pro"; font-style:normal; font-weight:500; font-display:swap; src:url("fonts/be-vietnam-pro-latin-500.woff2") format("woff2"); unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
+  @font-face{font-family:"Be Vietnam Pro"; font-style:normal; font-weight:600; font-display:swap; src:url("fonts/be-vietnam-pro-vietnamese-600.woff2") format("woff2"); unicode-range:U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB}
+  @font-face{font-family:"Be Vietnam Pro"; font-style:normal; font-weight:600; font-display:swap; src:url("fonts/be-vietnam-pro-latin-ext-600.woff2") format("woff2"); unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF}
+  @font-face{font-family:"Be Vietnam Pro"; font-style:normal; font-weight:600; font-display:swap; src:url("fonts/be-vietnam-pro-latin-600.woff2") format("woff2"); unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
+  @font-face{font-family:"Be Vietnam Pro"; font-style:normal; font-weight:700; font-display:swap; src:url("fonts/be-vietnam-pro-vietnamese-700.woff2") format("woff2"); unicode-range:U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB}
+  @font-face{font-family:"Be Vietnam Pro"; font-style:normal; font-weight:700; font-display:swap; src:url("fonts/be-vietnam-pro-latin-ext-700.woff2") format("woff2"); unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF}
+  @font-face{font-family:"Be Vietnam Pro"; font-style:normal; font-weight:700; font-display:swap; src:url("fonts/be-vietnam-pro-latin-700.woff2") format("woff2"); unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
+  @font-face{font-family:"Be Vietnam Pro"; font-style:normal; font-weight:800; font-display:swap; src:url("fonts/be-vietnam-pro-vietnamese-800.woff2") format("woff2"); unicode-range:U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB}
+  @font-face{font-family:"Be Vietnam Pro"; font-style:normal; font-weight:800; font-display:swap; src:url("fonts/be-vietnam-pro-latin-ext-800.woff2") format("woff2"); unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF}
+  @font-face{font-family:"Be Vietnam Pro"; font-style:normal; font-weight:800; font-display:swap; src:url("fonts/be-vietnam-pro-latin-800.woff2") format("woff2"); unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
+  /* ===== Design tokens (taste-skill, redesign-preserve) =====
+     Accent duy nhất: #2563EB, dùng y hệt khắp trang.
+     Bo góc: nút/chip/tab 12px (pill chỉ cho badge đếm nhỏ); thẻ/modal 18px; dòng bài 14px.
+     Màu môn pastel + chữ đậm sẫm GIỮ NGUYÊN theo ý chủ. Không dark mode (chủ đã chốt bảng sáng). */
   :root{
     --bg:#F6F8FC; --card:#FFFFFF; --ink:#1A2332; --muted:#5B6B82;
     --accent:#2563EB; --accent-soft:#EAF1FE; --line:#E3E9F2;
     --red:#DC2626; --red-soft:#FDECEC; --orange:#D97706; --orange-soft:#FDF3E3;
     --green:#15803D; --green-soft:#E7F6EC; --gray-soft:#EEF2F7;
-    --shadow:0 1px 3px rgba(26,35,50,.06),0 8px 24px rgba(26,35,50,.06);
+    --shadow:0 1px 2px rgba(26,35,50,.05),0 6px 20px rgba(26,35,50,.05);
+    --ring:0 0 0 3px rgba(37,99,235,.18);
     --radius:18px;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
@@ -27,6 +45,8 @@
   html,body{overflow-x:hidden; overflow-x:clip}
   body{font-family:"Be Vietnam Pro",system-ui,sans-serif; background:var(--bg); color:var(--ink); font-size:15px; line-height:1.5}
   .wrap{max-width:1080px; margin:0 auto; padding:16px 16px 56px}
+  .chipstat b, .recallbox .pct, .d-stat .vl, .dist-row .num{font-variant-numeric:tabular-nums}
+  ::placeholder{color:#6B7688; opacity:1}
 
   /* ===== Header ===== */
   header.top{display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px; padding:6px 0 12px}
@@ -35,14 +55,14 @@
   .hbtns{display:flex; gap:8px; flex-wrap:wrap}
   .btn{appearance:none; border:1px solid var(--line); background:var(--card); color:var(--ink);
     font:inherit; font-weight:600; font-size:14px; padding:9px 16px; border-radius:999px; cursor:pointer;
-    box-shadow:var(--shadow); display:inline-flex; align-items:center; gap:7px; transition:transform .15s ease, box-shadow .15s ease}
+    display:inline-flex; align-items:center; gap:7px; transition:transform .15s ease, background .15s ease, border-color .15s ease}
   .btn:hover{transform:translateY(-1px)}
-  .btn:active{transform:translateY(0)}
+  .btn:active{transform:scale(.98)}
   .btn.primary{background:var(--accent); border-color:var(--accent); color:#fff}
   .btn.small{padding:7px 13px; font-size:13px}
   .chips{display:flex; gap:8px; flex-wrap:wrap; width:100%}
   .chipstat{display:inline-flex; align-items:center; gap:7px; background:var(--card); border:1px solid var(--line);
-    border-radius:999px; padding:6px 13px; font-size:13.5px; color:var(--muted); box-shadow:var(--shadow); white-space:nowrap}
+    border-radius:999px; padding:6px 13px; font-size:13.5px; color:var(--muted); white-space:nowrap}
   .chipstat b{font-size:16px; color:var(--ink); font-weight:800}
   .chipstat .n-blue{color:var(--accent)} .chipstat .n-orange{color:var(--orange)} .chipstat .n-red{color:var(--red)}
   #notice{display:none; background:#FFF7E6; border:1px solid #F3DFAE; color:#7A5410; border-radius:12px;
@@ -50,10 +70,10 @@
   #notice.show{display:block}
 
   /* ===== Tab bar ===== */
-  .tabbar{position:sticky; top:10px; z-index:30; background:#E8EDF5; border-radius:999px; padding:5px;
+  .tabbar{position:sticky; top:10px; z-index:30; background:#E8EDF5; border-radius:16px; padding:5px;
     display:flex; gap:4px; box-shadow:var(--shadow); margin:4px 0 16px}
   .tabbtn{flex:1; min-width:0; appearance:none; border:0; background:transparent; font:inherit; font-weight:600; font-size:14.5px;
-    color:var(--muted); padding:9px 6px; border-radius:999px; cursor:pointer; display:inline-flex; align-items:center;
+    color:var(--muted); padding:9px 6px; border-radius:12px; cursor:pointer; display:inline-flex; align-items:center;
     justify-content:center; gap:7px; transition:all .25s ease; white-space:nowrap}
   .tabbtn .cnt{background:var(--red); color:#fff; font-size:11.5px; font-weight:700; border-radius:999px; padding:1px 7px}
   .tabbtn.active{background:#fff; color:var(--accent); box-shadow:0 2px 8px rgba(26,35,50,.13)}
@@ -68,7 +88,7 @@
   @media(min-width:760px){ .summary-grid{grid-template-columns:1fr 1fr} }
   .dist-row{display:flex; align-items:center; gap:10px; margin:7px 0}
   .dist-row .bar{flex:1; height:9px; background:var(--gray-soft); border-radius:99px; overflow:hidden}
-  .dist-row .bar i{display:block; height:100%; border-radius:99px; width:0; transition:width .8s cubic-bezier(.22,.8,.3,1)}
+  .dist-row .bar i{display:block; height:100%; border-radius:99px; width:0; transition:none}
   .dist-row .num{font-weight:700; min-width:26px; text-align:right}
   .sumline{display:flex; justify-content:space-between; align-items:baseline; padding:5px 0; color:var(--muted)}
   .sumline b{font-size:15px}
@@ -83,6 +103,7 @@
     border:1px solid var(--line); border-radius:14px; padding:11px 14px; cursor:pointer; font:inherit; color:inherit;
     box-shadow:0 1px 2px rgba(26,35,50,.05); transition:transform .15s ease, box-shadow .15s ease}
   .row:hover{transform:translateY(-1px); box-shadow:var(--shadow)}
+  .row:active{transform:scale(.99)}
   .row-main{flex:1; min-width:0}
   .row-topic{display:block; font-weight:600; font-size:15px; line-height:1.35;
     display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
@@ -95,7 +116,7 @@
   .recallbox{flex:none; width:86px; text-align:right}
   .recallbox .pct{font-weight:800; font-size:15px}
   .recallbox .bar{height:6px; background:var(--gray-soft); border-radius:99px; overflow:hidden; margin-top:4px}
-  .recallbox .bar i{display:block; height:100%; border-radius:99px; width:0; transition:width .8s cubic-bezier(.22,.8,.3,1)}
+  .recallbox .bar i{display:block; height:100%; border-radius:99px; width:0; transition:none}
   .urgent{border:1.5px solid #F5C6C6; background:linear-gradient(180deg,#FFF7F7,#fff)}
   .urgent .utag{display:inline-flex; align-items:center; gap:6px; color:var(--red); font-weight:800; font-size:13px; letter-spacing:.02em; margin-bottom:6px}
   .fade-up{animation:fadeUp .25s ease both}
@@ -105,7 +126,7 @@
   /* ===== All tab toolbar ===== */
   .toolbar{position:sticky; top:66px; z-index:20; background:var(--bg); padding:8px 0 10px}
   .search{width:100%; font:inherit; padding:11px 15px; border-radius:13px; border:1px solid var(--line); background:#fff; box-shadow:var(--shadow); outline:none}
-  .search:focus{border-color:var(--accent)}
+  .search:focus{border-color:var(--accent); box-shadow:var(--ring)}
   .filters{display:flex; gap:7px; flex-wrap:wrap; margin-top:9px; align-items:center}
   .fchip{appearance:none; border:1px solid var(--line); background:#fff; font:inherit; font-size:13px; font-weight:600;
     padding:6px 12px; border-radius:999px; cursor:pointer; color:var(--muted)}
@@ -122,9 +143,9 @@
   .overlay{position:fixed; inset:0; background:rgba(20,28,45,.45); z-index:60; display:none; align-items:flex-end; justify-content:center; padding:0}
   @media(min-width:700px){ .overlay{align-items:center; padding:20px} }
   .overlay.open{display:flex}
-  .modal{background:#fff; width:100%; max-width:620px; max-height:88vh; overflow:auto; border-radius:22px 22px 0 0; padding:20px;
+  .modal{background:#fff; width:100%; max-width:620px; max-height:88vh; overflow:auto; border-radius:18px 18px 0 0; padding:20px;
     animation:modalIn .28s cubic-bezier(.22,.9,.3,1.2) both}
-  @media(min-width:700px){ .modal{border-radius:22px} }
+  @media(min-width:700px){ .modal{border-radius:18px} }
   @keyframes modalIn{from{opacity:0; transform:scale(.94) translateY(14px)} to{opacity:1; transform:none}}
   .modal h3{margin:0 30px 4px 0; font-size:18px; line-height:1.35}
   .xbtn{position:absolute; top:14px; right:14px; width:34px; height:34px; border-radius:50%; border:1px solid var(--line);
@@ -137,7 +158,7 @@
   form.addform label{font-size:13.5px; font-weight:600; color:var(--muted); display:flex; flex-direction:column; gap:5px}
   form.addform input, form.addform select, form.addform textarea{font:inherit; font-size:15px; color:var(--ink);
     padding:10px 12px; border:1px solid var(--line); border-radius:11px; background:#fff; outline:none; font-weight:400}
-  form.addform input:focus, form.addform select:focus, form.addform textarea:focus{border-color:var(--accent)}
+  form.addform input:focus, form.addform select:focus, form.addform textarea:focus{border-color:var(--accent); box-shadow:var(--ring)}
   .formerr{display:none; background:var(--red-soft); color:var(--red); border-radius:10px; padding:9px 12px; font-size:13.5px}
   .formerr.show{display:block}
   #toast{position:fixed; left:50%; bottom:26px; transform:translateX(-50%) translateY(20px); background:#14351F; color:#D9F5E0;
@@ -151,7 +172,7 @@
   .tchips{display:flex; gap:8px; overflow-x:auto; padding:2px 0 4px; margin-top:14px; scrollbar-width:none}
   .tchips::-webkit-scrollbar{display:none}
   .tchip{flex:0 0 auto; border:1.5px solid #E3E9F2; background:#fff; border-radius:999px; padding:7px 13px; font-weight:600; font-size:13.5px; cursor:pointer; color:#33415C}
-  .tchip.active{background:#2563eb; border-color:#2563eb; color:#fff}
+  .tchip.active{background:var(--accent); border-color:var(--accent); color:#fff}
   .grouphead{cursor:pointer; user-select:none}
   .grouphead .chev{margin-left:auto; color:var(--muted); font-size:13px; font-weight:500}
   .rows.collapsed{display:none}
@@ -214,7 +235,7 @@
 
   /* Ghi chú */
   .notetext{width:100%; font:inherit; padding:11px 13px; border-radius:13px; border:1px solid var(--line); background:#fff; outline:none; resize:vertical; line-height:1.55}
-  .notetext:focus{border-color:var(--accent)}
+  .notetext:focus{border-color:var(--accent); box-shadow:var(--ring)}
   .note-card{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px 16px; box-shadow:var(--shadow)}
   .note-head{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:7px}
   .note-time{background:var(--bg); border:1px solid var(--line); padding:2px 10px; border-radius:999px; color:var(--muted); font-size:12px; font-weight:600}
@@ -255,11 +276,11 @@
   #detailOverlay h3{font-size:21px; margin:0 36px 6px 0}
   .d-sub{display:flex; align-items:center; gap:10px; flex-wrap:wrap; color:var(--muted); font-size:14px; font-weight:600}
   .d-meta{display:grid; grid-template-columns:repeat(auto-fit,minmax(128px,1fr)); gap:10px; margin-top:16px}
-  .d-stat{background:var(--gray-soft); border:1px solid var(--line); border-radius:14px; padding:10px 12px}
-  .d-stat .lb{font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--muted)}
+  .d-stat{background:#fff; border:1px solid var(--line); border-radius:14px; padding:10px 12px}
+  .d-stat .lb{font-size:12.5px; font-weight:600; color:var(--muted)}
   .d-stat .vl{font-size:16px; font-weight:700; margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
   .d-sec{margin-top:20px}
-  .d-sec h4{margin:0 0 8px; font-size:13px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:#33507E}
+  .d-sec h4{margin:0 0 8px; font-size:15px; font-weight:800; color:var(--ink)}
   .d-sec .dbody{background:#FBFCFE; border:1px solid var(--line); border-left:4px solid var(--accent); border-radius:12px; padding:14px 18px; font-size:16px; line-height:1.75}
   .d-sec.answer .dbody{border-left-color:#15803D; background:#F7FBF8}
   .d-sec.mistakes .dbody{border-left-color:#D97706; background:#FFFBF2}
@@ -281,12 +302,13 @@
   .today-top5{margin-bottom:14px}
   .today-top5 .tn-title{font-weight:700; font-size:15px; margin-bottom:6px}
   .t5row{display:flex; align-items:center; flex-wrap:wrap; gap:8px; width:100%; text-align:left; background:none; border:none; border-top:1px solid var(--line); padding:9px 2px; cursor:pointer; font:inherit; color:inherit}
+  .t5row:hover{background:var(--gray-soft); border-radius:8px}
   .t5num{font-weight:800; color:var(--muted); min-width:15px}
   .t5topic{font-weight:600; flex:1; min-width:140px}
   .t5meta{color:var(--muted); font-size:13px; white-space:nowrap}
-  .boardswitch{display:flex; gap:8px; margin-top:12px}
-  .boardswitch .boardbtn{flex:1; justify-content:center; font-weight:700}
-  .boardswitch .boardbtn.active{background:#2563eb; color:#fff; border-color:#2563eb}
+  .boardswitch{display:flex; gap:4px; margin-top:12px; background:#E8EDF5; border-radius:14px; padding:4px}
+  .boardswitch .boardbtn{flex:1; justify-content:center; font-weight:700; background:transparent; border:0; border-radius:10px; padding:9px 6px}
+  .boardswitch .boardbtn.active{background:#fff; color:var(--ink); box-shadow:0 2px 8px rgba(26,35,50,.13)}
   body.board-ex .photogrid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
   .dp-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px}
   .dp-head button{border:1px solid var(--line); background:#fff; border-radius:9px; width:36px; height:36px; font-size:18px; cursor:pointer}
@@ -407,7 +429,7 @@
 
     <div class="note">
       <h4>Ghi nhận đã ôn ở đâu?</h4>
-      <p>Trang này chỉ để xem và thêm bài mới. Muốn ghi nhận đã ôn, bạn vào Google Sheet: chọn <b>Mức độ nhớ TRƯỚC</b> cho bài đó, rồi mới tick <b>Đã ôn</b> — hệ thống FSRS sẽ tự tính ngày ôn tiếp theo.</p>
+      <p>Trang này chỉ để xem và thêm bài mới. Muốn ghi nhận đã ôn, bạn vào Google Sheet: chọn <b>Mức độ nhớ TRƯỚC</b> cho bài đó, rồi mới tick <b>Đã ôn</b> - hệ thống FSRS sẽ tự tính ngày ôn tiếp theo.</p>
       <a class="btn small" href="https://docs.google.com/spreadsheets/d/11RklBcauP9tG--BFHY4a5ysHHIrgH43Hb-uPJbqJ27I" target="_blank" rel="noopener">Mở Google Sheet</a>
     </div>
   </section>
@@ -427,9 +449,9 @@
         <select id="recallSel" aria-label="Lọc theo mức nhớ">
           <option value="">Mọi mức nhớ</option>
           <option value="g1">Nhớ ≥ 90%</option>
-          <option value="g2">80 – 90%</option>
-          <option value="g3">70 – 80%</option>
-          <option value="g4">50 – 70%</option>
+          <option value="g2">80 - 90%</option>
+          <option value="g3">70 - 80%</option>
+          <option value="g4">50 - 70%</option>
           <option value="g5">Dưới 50%</option>
         </select>
         <button class="btn primary small addbtn" id="btnAdd" type="button">+ Thêm bài mới</button>
@@ -461,7 +483,7 @@
   <section class="tabpane" id="pane-notes">
     <div class="card">
       <h3>Ghi chú nhanh</h3>
-      <p style="color:var(--muted);font-size:13.5px;margin:0 0 10px">Viết gì cũng được — ghi chú lưu vào tab <b>Ghi chú</b> trong Google Sheet của bạn nên không sợ mất, mở Sheet cũng thấy.</p>
+      <p style="color:var(--muted);font-size:13.5px;margin:0 0 10px">Viết gì cũng được - ghi chú lưu vào tab <b>Ghi chú</b> trong Google Sheet của bạn nên không sợ mất, mở Sheet cũng thấy.</p>
       <form id="noteForm">
         <div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px">Môn của ghi chú:</div>
         <div class="chips" id="noteSubjChips" style="margin-bottom:10px"></div>
@@ -472,7 +494,7 @@
         <button class="btn primary" type="submit" id="noteSave" style="width:100%;justify-content:center;margin-top:8px">Lưu ghi chú</button>
         <button class="btn" type="button" style="width:100%;justify-content:center;margin-top:8px" onclick="togglePreview('noteInput','notePreview',this)">👀 Xem trước</button>
         <div id="notePreview" class="note-card" style="display:none;margin-top:10px"></div>
-        <p style="color:var(--muted);font-size:12.5px;margin:8px 0 0">Mẹo: công thức viết dạng $...$ (cùng dòng) hoặc $$...$$ (riêng một dòng) — web tự hiện thành công thức đẹp.</p>
+        <p style="color:var(--muted);font-size:12.5px;margin:8px 0 0">Mẹo: công thức viết dạng $...$ (cùng dòng) hoặc $$...$$ (riêng một dòng) - web tự hiện thành công thức đẹp.</p>
       </form>
     </div>
     <div style="display:flex;align-items:center;gap:8px;margin-top:14px;flex-wrap:wrap"><span style="font-size:13px;color:var(--muted);font-weight:600;flex:none">Lọc theo môn:</span><div class="chips" id="noteFilterChips" style="flex:1;min-width:230px;width:auto"></div></div>
@@ -584,7 +606,7 @@
 
 <script>
 "use strict";
-/* ===== Firebase config — chép nguyên văn từ web Thư viện Video Bấm Máy ===== */
+/* ===== Firebase config - chép nguyên văn từ web Thư viện Video Bấm Máy ===== */
 const firebaseConfig = { apiKey: "AIzaSyBAyMWdWWYySvGGsGORFZrTj4aM6oj6cpE", authDomain: "giupaedonv1.firebaseapp.com", projectId: "giupaedonv1", storageBucket: "giupaedonv1.firebasestorage.app", messagingSenderId: "1053830682519", appId: "1:1053830682519:web:4a1ceada98de52d8c956d2" };
 const SR_SHEET_ID = "11RklBcauP9tG--BFHY4a5ysHHIrgH43Hb-uPJbqJ27I";
 const BOARD_TABS = { study: "Bảng ôn tập", ex: "Bảng bài tập" };
@@ -621,7 +643,7 @@ function setBoard(b) {
   renderAll_Tabs(false);
   const tok = getToken();
   if (tok) refreshWithToken(tok);
-  else if (!cache) showNotice("Bảng này chưa có dữ liệu trên máy này — bấm nút Đăng nhập Google một lần để tải về.");
+  else if (!cache) showNotice("Bảng này chưa có dữ liệu trên máy này - bấm nút Đăng nhập Google một lần để tải về.");
 }
 const OWNER_EMAIL_SR = "thaonguyenvg19@gmail.com";
 const SHEETS_API = "https://sheets.googleapis.com/v4/spreadsheets/" + SR_SHEET_ID + "/values/";
@@ -750,7 +772,7 @@ function badgeHTML(L) {
 function rowHTML(L, i) {
   const s = subjStyle(L.subject);
   const rc = recallNum(L);
-  const pct = rc == null ? "—" : rc + "%";
+  const pct = rc == null ? "-" : rc + "%";
   const w = rc == null ? 0 : Math.max(0, Math.min(100, rc));
   const col = bandColor(recallBand(L));
   return '<button class="row fade-up" type="button" style="--i:' + i + '" onclick="openDetail(' + L.row + ')">' +
@@ -820,7 +842,7 @@ function renderToday() {
     const chip = '<span class="subj" style="background:' + st.bg + ';color:' + st.fg + ';min-width:64px;justify-content:center">' + esc(name) + '</span>';
     const vals = lessons.filter(function (L) { return L.subject === name; }).map(recallNum).filter(function (v) { return v != null; });
     if (!vals.length) {
-      return '<div class="dist-row">' + chip + '<span class="bar"><i style="background:#CBD5E1;width:0%"></i></span><span class="num" style="color:var(--muted);min-width:52px">—</span></div>';
+      return '<div class="dist-row">' + chip + '<span class="bar"><i style="background:#CBD5E1;width:0%"></i></span><span class="num" style="color:var(--muted);min-width:52px">-</span></div>';
     }
     const avg = Math.round(vals.reduce(function (a, b) { return a + b; }, 0) / vals.length);
     const band = avg >= 90 ? "g1" : avg >= 80 ? "g2" : avg >= 70 ? "g3" : avg >= 50 ? "g4" : "g5";
@@ -843,7 +865,7 @@ function renderToday() {
       '<span class="utag">⚠ GẤP NHẤT HÔM NAY</span>' +
       '<div style="font-weight:700;font-size:17px;line-height:1.35">' + esc(u.topic) + '</div>' +
       '<div class="row-sub"><span class="subj" style="background:' + s.bg + ';color:' + s.fg + '">' + esc(u.subject) + '</span>' +
-      badgeHTML(u) + '<span class="duetxt">' + dueText(u) + ' · Nhớ ' + esc(u.recall || "—") + '</span></div></div>';
+      badgeHTML(u) + '<span class="duetxt">' + dueText(u) + ' · Nhớ ' + esc(u.recall || "-") + '</span></div></div>';
   } else {
     if (!lessons.length) {
       urgentBox.innerHTML = '<div class="card" style="margin-bottom:6px;text-align:center;padding:22px 18px"><div style="font-weight:700;font-size:16.5px;margin-bottom:6px">Chưa có dữ liệu trên máy này</div><div style="color:#5B6B82;font-size:14px;line-height:1.5;margin-bottom:14px">Bảng học nằm trong Google Sheet của bạn nên cần tải về máy này một lần.</div><button type="button" onclick="loadFromSheet()" style="background:#2563eb;color:#fff;border:none;border-radius:12px;padding:13px 20px;font-size:15.5px;font-weight:600;cursor:pointer;width:100%">Tải dữ liệu từ Google Sheet</button></div>';
@@ -852,7 +874,7 @@ function renderToday() {
     }
   }
 
-  /* Hàng đợi hôm nay — NHÓM THEO MÔN (group-by-subject) */
+  /* Hàng đợi hôm nay - NHÓM THEO MÔN (group-by-subject) */
   const groups = {};
   todayList.forEach(function (L) { (groups[L.subject] = groups[L.subject] || []).push(L); });
   const groupList = Object.keys(groups).map(function (name) {
@@ -879,7 +901,7 @@ function renderToday() {
         '<span class="t5num">' + (i + 1) + '</span>' +
         '<span class="subj" style="background:' + st.bg + ';color:' + st.fg + '">' + esc(L.subject) + '</span>' +
         '<span class="t5topic">' + esc(L.topic) + '</span>' +
-        '<span class="t5meta">' + dueText(L) + ' · Nhớ ' + esc(L.recall || "—") + '</span></button>';
+        '<span class="t5meta">' + dueText(L) + ' · Nhớ ' + esc(L.recall || "-") + '</span></button>';
     }).join("") + '</div>';
   }
 
@@ -915,7 +937,7 @@ function renderToday() {
       const nO = g.items.filter(function (L) { return overdueDays(L) > 0; }).length;
       return '<button type="button" class="gside-item' + (todaySubj === g.name ? " active" : "") + '" data-g="' + esc(g.name) + '" onclick="setTodaySubj(this.getAttribute(\'data-g\'))">' +
         '<span class="subj" style="background:' + s2.bg + ';color:' + s2.fg + '">' + esc(g.name) + '</span>' +
-        '<span class="gs-meta"><b>' + g.items.length + ' bài</b> · ' + nO + ' trễ hạn<br>Trễ nhất ' + worst + ' ngày · Nhớ thấp nhất ' + (lowR === 999 ? "—" : lowR + "%") + '</span>' +
+        '<span class="gs-meta"><b>' + g.items.length + ' bài</b> · ' + nO + ' trễ hạn<br>Trễ nhất ' + worst + ' ngày · Nhớ thấp nhất ' + (lowR === 999 ? "-" : lowR + "%") + '</span>' +
         '<span class="gsbar"><i style="background:' + s2.bar + ';width:' + Math.round(g.items.length / totT * 100) + '%"></i></span></button>';
     }).join("") + '</div>';
     let detail;
@@ -956,8 +978,8 @@ function renderStats() {
   document.getElementById("distSubject2").innerHTML =
     distHTML(subjectCounts(lessons), total, function (c) { return c.chip.bar; });
   const bands = [
-    { label: "≥ 90%", key: "g1" }, { label: "80 – 90%", key: "g2" }, { label: "70 – 80%", key: "g3" },
-    { label: "50 – 70%", key: "g4" }, { label: "< 50%", key: "g5" }
+    { label: "≥ 90%", key: "g1" }, { label: "80 - 90%", key: "g2" }, { label: "70 - 80%", key: "g3" },
+    { label: "50 - 70%", key: "g4" }, { label: "< 50%", key: "g5" }
   ].map(function (b) {
     return { label: b.label, key: b.key, n: lessons.filter(function (L) { return recallBand(L) === b.key; }).length };
   });
@@ -1104,7 +1126,7 @@ async function submitReview(row, grade) {
     });
     if (!r2.ok) { const t = await r2.text(); throw new Error("HTTP " + r2.status + " " + t.slice(0, 140)); }
     msg.style.color = "var(--green)";
-    msg.innerHTML = "✔ Đã ghi nhận — mức <b>" + grade.label + "</b>, Ổn định S mới " + (Math.round(res.s * 100) / 100) + ". Trang đang tải lại dữ liệu mới nhất.";
+    msg.innerHTML = "✔ Đã ghi nhận - mức <b>" + grade.label + "</b>, Ổn định S mới " + (Math.round(res.s * 100) / 100) + ". Trang đang tải lại dữ liệu mới nhất.";
     document.getElementById("gradeDone").style.display = "";
     showToast("Đã ghi nhận ôn bài ✔");
     refreshWithToken(tok);
@@ -1119,7 +1141,7 @@ function dmyToIso(dmy) {
   const p = String(dmy || "").split("/");
   return p.length === 3 ? p[2] + "-" + p[1].padStart(2, "0") + "-" + p[0].padStart(2, "0") : "";
 }
-/* Sửa thông tin bài: chỉ ghi các ô nội dung A/B/D/J/K/L — không đụng cột công thức, S/D, lịch sử */
+/* Sửa thông tin bài: chỉ ghi các ô nội dung A/B/D/J/K/L - không đụng cột công thức, S/D, lịch sử */
 async function submitEdit(row) {
   const errBox = document.getElementById("eError");
   function fail(m) { errBox.textContent = m; errBox.classList.add("show"); }
@@ -1173,18 +1195,18 @@ function openDetail(row) {
   const stats = [
     ["Trạng thái", esc(L.status)],
     ["Hẹn ôn", esc(dueText(L))],
-    ["% nhớ dự đoán", rc == null ? "—" : '<span style="color:' + bandColor(recallBand(L)) + '">' + rc + '%</span>'],
-    ["Mức nhớ gần nhất", esc(L.lastGrade || "—")],
+    ["% nhớ dự đoán", rc == null ? "-" : '<span style="color:' + bandColor(recallBand(L)) + '">' + rc + '%</span>'],
+    ["Mức nhớ gần nhất", esc(L.lastGrade || "-")],
     ["Số lần ôn", esc(L.reviewCount || "0")],
-    ["Ngày học", esc(L.learnedDate || "—")],
-    ["Ôn lần cuối", esc(L.lastReview || "—")],
-    ["Ngày hẹn ôn", esc(L.dueDate || "—")],
-    ["Khoảng ôn FSRS", L.interval ? esc(L.interval) + " ngày" : "—"],
-    ["Ổn định S", esc(L.S || "—")],
-    ["Độ khó D", esc(L.D || "—")]
+    ["Ngày học", esc(L.learnedDate || "-")],
+    ["Ôn lần cuối", esc(L.lastReview || "-")],
+    ["Ngày hẹn ôn", esc(L.dueDate || "-")],
+    ["Khoảng ôn FSRS", L.interval ? esc(L.interval) + " ngày" : "-"],
+    ["Ổn định S", esc(L.S || "-")],
+    ["Độ khó D", esc(L.D || "-")]
   ];
   function sec(cls, title, val) {
-    return '<div class="d-sec ' + cls + '"><h4>' + title + '</h4><div class="dbody"><span class="mathcell">' + esc(val || "—") + '</span></div></div>';
+    return '<div class="d-sec ' + cls + '"><h4>' + title + '</h4><div class="dbody"><span class="mathcell">' + esc(val || "-") + '</span></div></div>';
   }
   document.getElementById("detailBody").innerHTML =
     '<h3>' + esc(L.topic) + '</h3>' +
@@ -1194,7 +1216,7 @@ function openDetail(row) {
     sec("answer", "💡 Đáp án / Gợi ý", L.answer) +
     sec("mistakes", "⚠️ Ghi chú lỗi sai", L.mistakes) +
     '<div class="d-sec" id="photoSec"><h4>🖼️ Ảnh tài liệu (<span id="photoCount">0</span>)</h4><div class="photogrid" id="photoGrid"></div>' +
-    '<button class="btn" id="btnAddPhoto" type="button" style="width:100%;justify-content:center;margin-top:10px">📷 Thêm ảnh — chụp hoặc chọn từ máy</button>' +
+    '<button class="btn" id="btnAddPhoto" type="button" style="width:100%;justify-content:center;margin-top:10px">📷 Thêm ảnh - chụp hoặc chọn từ máy</button>' +
     '<input type="file" id="photoInput" accept="image/*" multiple hidden></div>' +
     '<div class="d-sec"><h4>📎 File bài làm (<span id="fileCount">0</span>)</h4><div id="fileList"></div>' +
     '<button class="btn" id="btnAddFile" type="button" style="width:100%;justify-content:center;margin-top:10px">📎 Thêm file PDF</button>' +
@@ -1285,7 +1307,7 @@ document.getElementById("gradeClose").addEventListener("click", closeGrade);
 document.getElementById("gradeOverlay").addEventListener("click", function (e) { if (e.target === this) closeGrade(); });
 document.getElementById("gradeDone").addEventListener("click", function () { closeGrade(); closeDetail(); });
 
-/* ===== Ghi chú — lưu ở tab "Ghi chú" trong Sheet ===== */
+/* ===== Ghi chú - lưu ở tab "Ghi chú" trong Sheet ===== */
 const NOTES_TAB = "Ghi chú";
 let notes = [];
 let notesLoaded = false;
@@ -1386,7 +1408,7 @@ function renderNotes() {
   if (!notes.length) {
     box.innerHTML = getToken()
       ? '<div class="empty">Chưa có ghi chú nào. Viết ghi chú đầu tiên ở ô phía trên nhé.</div>'
-      : '<div class="empty">Ghi chú nằm trong Google Sheet của bạn — đăng nhập Google một lần để xem và viết ghi chú.</div>';
+      : '<div class="empty">Ghi chú nằm trong Google Sheet của bạn - đăng nhập Google một lần để xem và viết ghi chú.</div>';
     return;
   }
   /* Đánh số theo danh sách ĐANG HIỆN: lọc "Tất cả" thì số toàn cục, lọc theo môn thì số chạy 1→hết trong môn đó */
@@ -1619,7 +1641,7 @@ async function uploadPhotos(L, fileList) {
   if (btn) { btn.disabled = true; }
   try {
     let tok = await tokenOrSilent();
-    if (!tok) { showToast("Cần đăng nhập Google để thêm ảnh — bấm nút Đăng nhập ở đầu trang rồi thử lại."); return; }
+    if (!tok) { showToast("Cần đăng nhập Google để thêm ảnh - bấm nút Đăng nhập ở đầu trang rồi thử lại."); return; }
     let folderId;
     try { folderId = await ensurePhotoFolder(tok); }
     catch (e) {
@@ -1686,7 +1708,7 @@ async function uploadFiles(L, fileList) {
   if (btn) btn.disabled = true;
   try {
     let tok = await tokenOrSilent();
-    if (!tok) { showToast("Cần đăng nhập Google để thêm file — bấm nút Đăng nhập ở đầu trang rồi thử lại."); return; }
+    if (!tok) { showToast("Cần đăng nhập Google để thêm file - bấm nút Đăng nhập ở đầu trang rồi thử lại."); return; }
     let folderId;
     try { folderId = await ensurePhotoFolder(tok); }
     catch (e) { clearToken(); tok = await signIn(); folderId = await ensurePhotoFolder(tok); }
@@ -1790,7 +1812,7 @@ async function openFile(L, idx) {
   if (!f) return;
   fileView = { L: L, f: f, idx: idx, page: 1, scale: 1.4, pdfDoc: null };
   document.getElementById("fileTitle").textContent = f.n;
-  document.getElementById("fileSub").textContent = "File PDF — xem ngay trên web";
+  document.getElementById("fileSub").textContent = "File PDF - xem ngay trên web";
   document.getElementById("fileBody").innerHTML = '<div style="color:var(--muted);padding:40px 0">⏳ Đang tải file…</div>';
   document.getElementById("filePageInfo").textContent = "";
   const j0 = document.getElementById("fileJump"); if (j0) j0.value = "";
@@ -1846,14 +1868,14 @@ async function renderAllPages() {
   if (!fv) return;
   const total = fileTotalPages();
   const body = document.getElementById("fileBody");
-  document.getElementById("filePageInfo").textContent = total ? (total + " trang — cuộn xuống để xem tiếp") : "";
+  document.getElementById("filePageInfo").textContent = total ? (total + " trang - cuộn xuống để xem tiếp") : "";
   body.innerHTML = "";
   body.scrollTop = 0;
   const wrap = document.createElement("div");
   wrap.id = "filePages";
   body.appendChild(wrap);
   const jump = document.getElementById("fileJump");
-  if (jump) { jump.max = total || ""; jump.placeholder = total ? ("Trang 1–" + total) : "Số trang"; }
+  if (jump) { jump.max = total || ""; jump.placeholder = total ? ("Trang 1-" + total) : "Số trang"; }
   if (fv.pageObserver) { try { fv.pageObserver.disconnect(); } catch (e) {} fv.pageObserver = null; }
   const status = document.createElement("div");
   status.style.cssText = "color:var(--muted);font-size:13px;padding:6px 0";
@@ -1872,7 +1894,7 @@ async function renderAllPages() {
     if (fileView !== fv) return;
     const label = document.createElement("div");
     label.style.cssText = "font-weight:700;font-size:13px;color:var(--muted);margin:16px 0 6px";
-    label.textContent = "— Trang " + i + " —";
+    label.textContent = "- Trang " + i + " -";
     label.id = "filePage-" + i;
     label.style.scrollMarginTop = "6px";
     wrap.appendChild(label);
@@ -1919,7 +1941,7 @@ function openImg(L, idx) {
   const id = L.images[idx];
   if (!id) return;
   currentImg = { lesson: L, id: id };
-  document.getElementById("imgTitle").textContent = "Ảnh " + (idx + 1) + "/" + L.images.length + " — " + L.topic;
+  document.getElementById("imgTitle").textContent = "Ảnh " + (idx + 1) + "/" + L.images.length + " - " + L.topic;
   const wrap = document.getElementById("imgFrameWrap");
   wrap.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px 0">⏳ Đang tải ảnh…</div>';
   const dl = document.getElementById("imgDownload");
@@ -1964,8 +1986,8 @@ function toggleLessonPreview(pvId, mistakes, answer, btn, label) {
   if (!pv) return;
   if (pv.style.display !== "none" && pv.innerHTML) { pv.style.display = "none"; btn.textContent = label; return; }
   pv.innerHTML =
-    '<div style="font-weight:700;margin-bottom:4px">Ghi chú lỗi sai</div><div class="mathcell">' + esc(mistakes || "—") + '</div>' +
-    '<div style="font-weight:700;margin:12px 0 4px">Đáp án / Gợi ý</div><div class="mathcell">' + esc(answer || "—") + '</div>';
+    '<div style="font-weight:700;margin-bottom:4px">Ghi chú lỗi sai</div><div class="mathcell">' + esc(mistakes || "-") + '</div>' +
+    '<div style="font-weight:700;margin:12px 0 4px">Đáp án / Gợi ý</div><div class="mathcell">' + esc(answer || "-") + '</div>';
   pv.style.display = "";
   btn.textContent = "🙈 Ẩn xem trước";
   typesetWhenReady(pv);
@@ -2002,7 +2024,7 @@ function typesetNotes() {
     return;
   }
   mathRetries = 0;
-  /* Chỉ hiện công thức ở phần HIỂN THỊ (.note-text) — tuyệt đối không chạy trong khung soạn thảo,
+  /* Chỉ hiện công thức ở phần HIỂN THỊ (.note-text) - tuyệt đối không chạy trong khung soạn thảo,
      nếu không mã nguồn trong khung sửa sẽ bị biến thành bản đã hiện rồi nhân đôi chữ khi lưu */
   box.querySelectorAll(".note-text").forEach(function (el) { typesetEl(el); });
 }
@@ -2016,7 +2038,7 @@ function editNote(row) {
 function cancelNoteEdit() { editingNoteRow = null; renderNotes(); }
 async function saveNoteEdit(row) {
   const ta = document.getElementById("noteEditText");
-  if (!ta.textContent.trim()) { alert("Ghi chú đang trống — muốn xoá thì bấm nút Xoá nhé."); return; }
+  if (!ta.textContent.trim()) { alert("Ghi chú đang trống - muốn xoá thì bấm nút Xoá nhé."); return; }
   const text = sanitizeNoteHtml(ta.innerHTML);
   const tok = await notesToken();
   if (!tok) { alert("Cần đăng nhập Google bằng tài khoản chủ để sửa ghi chú."); return; }
@@ -2114,12 +2136,12 @@ try {
         btn.textContent = "✓ " + user.email;
         try { localStorage.setItem("bh-owner-ok", "1"); } catch (e) {}
         var _g = document.getElementById("gate"); if (_g) _g.style.display = "none";
-        if (!getToken()) showNotice("Đã nhận ra tài khoản chủ — bấm nút Tải dữ liệu từ Google Sheet ở dưới để tải bảng học về máy này.");
+        if (!getToken()) showNotice("Đã nhận ra tài khoản chủ - bấm nút Tải dữ liệu từ Google Sheet ở dưới để tải bảng học về máy này.");
       } else if (user) {
         firebase.auth().signOut();
         clearToken();
         btn.textContent = "Đăng nhập Google";
-        showNotice("Tài khoản " + (user.email || "") + " không phải tài khoản chủ — đã đăng xuất.");
+        showNotice("Tài khoản " + (user.email || "") + " không phải tài khoản chủ - đã đăng xuất.");
       } else {
         btn.textContent = "Đăng nhập Google";
       }
@@ -2128,7 +2150,7 @@ try {
 } catch (e) { fbReady = false; }
 
 async function signIn() {
-  if (!fbReady) { showNotice("Chưa tải được thư viện đăng nhập Google — kiểm tra mạng rồi thử lại."); throw new Error("no-firebase"); }
+  if (!fbReady) { showNotice("Chưa tải được thư viện đăng nhập Google - kiểm tra mạng rồi thử lại."); throw new Error("no-firebase"); }
   const provider = new firebase.auth.GoogleAuthProvider();
   provider.addScope("https://www.googleapis.com/auth/spreadsheets");
   provider.addScope("https://www.googleapis.com/auth/drive.file");
@@ -2147,7 +2169,7 @@ async function signIn() {
   return tok;
 }
 
-/* Lấy token mới NGẦM khi token cũ hết hạn — chỉ gọi từ thao tác bấm của người dùng.
+/* Lấy token mới NGẦM khi token cũ hết hạn - chỉ gọi từ thao tác bấm của người dùng.
    Google còn nhớ phiên + quyền đã cấp thì trả token ngay, không hiện cửa sổ nào.
    Không lấy được thì trả null, nơi gọi lùi về đăng nhập thường như cũ. */
 const GIS_CLIENT_ID = "1053830682519-qghvj4nia8g2j49pb10vtuh567mk74bd.apps.googleusercontent.com";
@@ -2186,7 +2208,7 @@ document.getElementById("btnAuth").addEventListener("click", async function () {
     }
     return;
   }
-  try { const tok = await signIn(); if (tok) { showToast("Đăng nhập xong — đang tải dữ liệu mới…"); refreshWithToken(tok); } }
+  try { const tok = await signIn(); if (tok) { showToast("Đăng nhập xong - đang tải dữ liệu mới…"); refreshWithToken(tok); } }
   catch (e) { if (e && e.code !== "auth/popup-closed-by-user") showNotice("Đăng nhập không thành công: " + (e.message || e)); }
 });
 
@@ -2238,7 +2260,7 @@ async function refreshWithToken(token) {
       si.textContent = "Đã đồng bộ " + new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
     }
   } catch (e) {
-    showNotice("Không đọc được Google Sheet lúc này (" + (e.message || e) + ") — đang hiện dữ liệu đã lưu.");
+    showNotice("Không đọc được Google Sheet lúc này (" + (e.message || e) + ") - đang hiện dữ liệu đã lưu.");
     if (String(e.message || "").indexOf("401") >= 0) clearToken();
   }
 }
@@ -2384,7 +2406,7 @@ document.getElementById("addForm").addEventListener("submit", async function (ev
       if (!v || !String(v).trim()) { rowNum = i + 2; break; }
     }
     if (rowNum < 0) throw new Error(SR_TAB + " đã đầy 200 dòng.");
-    /* Ghi đúng 7 ô nội dung — KHÔNG ghi cột công thức G/H/O/Q, ô tick I, và KHÔNG đụng tab Hôm nay cần ôn */
+    /* Ghi đúng 7 ô nội dung - KHÔNG ghi cột công thức G/H/O/Q, ô tick I, và KHÔNG đụng tab Hôm nay cần ôn */
     const data = [
       { range: SR_TAB + "!A" + rowNum, values: [[topic]] },
       { range: SR_TAB + "!B" + rowNum, values: [[subject]] },
@@ -2427,8 +2449,8 @@ if (_gb) _gb.addEventListener("click", async function () {
   try {
     const tok = await signIn();
     updateGate();
-  if (!cache) { try { showNotice("Máy này chưa có dữ liệu — bấm nút Đăng nhập Google một lần để tải bảng học của bạn. Những lần sau mở trang là xem ngay, không hỏi lại."); } catch (e) {} }
-    if (tok) { showToast("Đăng nhập xong — đang tải dữ liệu mới…"); refreshWithToken(tok); }
+  if (!cache) { try { showNotice("Máy này chưa có dữ liệu - bấm nút Đăng nhập Google một lần để tải bảng học của bạn. Những lần sau mở trang là xem ngay, không hỏi lại."); } catch (e) {} }
+    if (tok) { showToast("Đăng nhập xong - đang tải dữ liệu mới…"); refreshWithToken(tok); }
   } catch (e) { if (e && e.code !== "auth/popup-closed-by-user") showNotice("Đăng nhập không thành công: " + (e.message || e)); }
 });
 
