@@ -1318,9 +1318,10 @@ function renderNotes() {
       : '<div class="empty">Ghi chú nằm trong Google Sheet của bạn — đăng nhập Google một lần để xem và viết ghi chú.</div>';
     return;
   }
-  box.innerHTML = notes.map(function (n, idx) {
-    const num = notes.length - idx;
-    if (noteFilter !== null && (n.subject || "") !== noteFilter) return "";
+  /* Đánh số theo danh sách ĐANG HIỆN: lọc "Tất cả" thì số toàn cục, lọc theo môn thì số chạy 1→hết trong môn đó */
+  const shown = noteFilter === null ? notes : notes.filter(function (n) { return (n.subject || "") === noteFilter; });
+  box.innerHTML = shown.map(function (n, idx) {
+    const num = shown.length - idx;
     if (editingNoteRow === n.row) {
       const content = isRichNote(n.text) ? sanitizeNoteHtml(n.text) : esc(n.text).replace(/\n/g, "<br>");
       return '<div class="note-card"><div class="note-head"><span style="display:flex;gap:7px;align-items:center"><span class="note-num">#' + num + '</span><span class="note-time">🕘 ' + esc(n.time) + '</span>' + noteSubjChip(n) + '</span></div>' +
