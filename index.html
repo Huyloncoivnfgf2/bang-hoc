@@ -2580,7 +2580,7 @@ async function createUserSheet(tok) {
   W.forEach(function (w, i) { const r = i + 6; CFG.push([CFG_NOTES[r] || "", "", "", "", "", "", "", "", "w" + i, w]); });
   const data = [];
   ["Bảng ôn tập", "Bảng bài tập"].forEach(function (tab) {
-    data.push({ range: tab + "!A1:T1", values: [HEADERS] });
+    data.push({ range: tab + "!A1:U1", values: [HEADERS] });
     data.push({ range: tab + "!G2:G200", values: col(fG) });
     data.push({ range: tab + "!H2:H200", values: col(fH) });
     data.push({ range: tab + "!O2:O200", values: col(fO) });
