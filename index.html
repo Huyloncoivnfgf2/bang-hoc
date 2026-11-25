@@ -570,7 +570,7 @@
     <h3 id="addTitle" style="margin:0 30px 2px 0; font-size:18px">Thêm bài mới</h3>
     <p style="margin:0; color:var(--muted); font-size:13.5px">Bài sẽ được ghi vào tab <b id="fTabName">Bảng ôn tập</b> trong Google Sheet.</p>
     <form class="addform" id="addForm">
-      <label>Chủ đề *
+      <label><span id="fTopicLabelText">Chủ đề *</span>
         <input id="fTopic" type="text" required placeholder="Tên bài học">
       </label>
       <label>Môn
@@ -1178,7 +1178,8 @@ async function submitEdit(row) {
   const errBox = document.getElementById("eError");
   function fail(m) { errBox.textContent = m; errBox.classList.add("show"); }
   errBox.classList.remove("show");
-  const topic = document.getElementById("eTopic").value.trim();
+  let topic = document.getElementById("eTopic").value.trim();
+  if (!topic && board === "ex") { const cur = lessons.filter(function (x) { return x.row === row; })[0]; topic = cur ? cur.topic : "Câu sai"; }
   if (!topic) { fail("Chưa nhập Chủ đề."); return; }
   const subject = document.getElementById("eSubject").value;
   const rawDate = document.getElementById("eDate").value.trim();
@@ -1260,7 +1261,7 @@ function openDetail(row) {
       '<button class="btn primary" id="btnReviewed" type="button">✓ Đã ôn bài này</button>' +
     '</div>' +
     '<div id="editBox" style="display:none;margin-top:14px"><form class="addform" id="editForm">' +
-      '<label>Chủ đề *<input id="eTopic" type="text" required></label>' +
+      '<label>' + (board === "ex" ? "Chủ đề (không bắt buộc)" : "Chủ đề *") + '<input id="eTopic" type="text"' + (board === "ex" ? "" : " required") + '></label>' +
       '<label>Môn<select id="eSubject">' + (SUBJECTS.indexOf(L.subject) >= 0 ? SUBJECTS : SUBJECTS.concat([L.subject])).map(function (x) { return '<option' + (x === L.subject ? ' selected' : '') + '>' + esc(x) + '</option>'; }).join("") + '</select></label>' +
       '<label>Ngày học<span style="display:flex;gap:8px"><input id="eDate" type="text" inputmode="numeric" placeholder="25/11/2026" autocomplete="off" style="flex:1;min-width:0"><button class="btn" id="eDateCal" type="button" aria-label="Chọn ngày">📅</button></span></label>' +
       '<label><span style="display:flex;align-items:center;gap:6px">' + (board === "ex" ? "Đề bài" : "Nơi viết / Câu hỏi gợi nhớ") + '<button class="btn small" id="eMathBtn" type="button" title="Chèn công thức $...$" style="margin-left:auto;padding:3px 10px;font-size:12.5px">∑ Math</button></span><textarea id="eNotebook" rows="3"></textarea></label>' +
@@ -2467,6 +2468,9 @@ async function createUserSheet(tok) {
     requests.push({ setDataValidation: { range: { sheetId: sid, startRowIndex: 1, endRowIndex: 200, startColumnIndex: 2, endColumnIndex: 3 }, rule: { condition: { type: "ONE_OF_LIST", values: ["Mới học", "Rất khó", "Khó", "Bình thường", "Dễ"].map(function (x) { return { userEnteredValue: x }; }) }, strict: true, showCustomUi: true } } });
     requests.push({ setDataValidation: { range: { sheetId: sid, startRowIndex: 1, endRowIndex: 200, startColumnIndex: 8, endColumnIndex: 9 }, rule: { condition: { type: "BOOLEAN" } } } });
     requests.push({ repeatCell: { range: { sheetId: sid, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 20 }, cell: { userEnteredFormat: { textFormat: { bold: true } } }, fields: "userEnteredFormat.textFormat.bold" } });
+    [[3, "DATE", "dd/mm/yyyy"], [4, "DATE", "dd/mm/yyyy"], [6, "DATE", "dd/mm/yyyy"], [12, "NUMBER", "0.00"], [13, "NUMBER", "0.00"], [14, "PERCENT", "0%"], [16, "NUMBER", "0"]].forEach(function (f) {
+      requests.push({ repeatCell: { range: { sheetId: sid, startRowIndex: 1, endRowIndex: 200, startColumnIndex: f[0], endColumnIndex: f[0] + 1 }, cell: { userEnteredFormat: { numberFormat: { type: f[1], pattern: f[2] } } }, fields: "userEnteredFormat.numberFormat" } });
+    });
   });
   requests.push({ repeatCell: { range: { sheetId: sheetIds["Ghi chú"], startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 3 }, cell: { userEnteredFormat: { textFormat: { bold: true } } }, fields: "userEnteredFormat.textFormat.bold" } });
   requests.push({ repeatCell: { range: { sheetId: sheetIds["Cấu hình"], startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 10 }, cell: { userEnteredFormat: { textFormat: { bold: true } } }, fields: "userEnteredFormat.textFormat.bold" } });
@@ -2621,6 +2625,10 @@ function openAdd() {
   addPhotoFiles = []; renderAddPhotoThumbs();
   const pz = document.getElementById("fPhotoZone");
   if (pz) pz.style.display = board === "ex" ? "flex" : "none";
+  const ft = document.getElementById("fTopic");
+  const ftt = document.getElementById("fTopicLabelText");
+  if (ft) { ft.required = board !== "ex"; ft.placeholder = board === "ex" ? "Không bắt buộc - để trống web tự đặt tên" : "Tên bài học"; }
+  if (ftt) ftt.textContent = board === "ex" ? "Chủ đề (không bắt buộc)" : "Chủ đề *";
   const nlt = document.getElementById("fNotebookLabelText");
   if (nlt) nlt.textContent = board === "ex" ? "Đề bài" : "Nơi viết";
   const nb = document.getElementById("fNotebook");
@@ -2715,7 +2723,8 @@ document.getElementById("addForm").addEventListener("submit", async function (ev
   const errBox = document.getElementById("fError");
   function fail(msg) { errBox.textContent = msg; errBox.classList.add("show"); }
   errBox.classList.remove("show");
-  const topic = document.getElementById("fTopic").value.trim();
+  let topic = document.getElementById("fTopic").value.trim();
+  if (!topic && board === "ex") topic = "Câu sai " + (lessons.length + 1);
   if (!topic) { fail("Chưa nhập Chủ đề."); return; }
   const subject = document.getElementById("fSubject").value;
   const grade = document.getElementById("fGrade").value;
