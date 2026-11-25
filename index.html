@@ -278,7 +278,12 @@
   .photogrid .phnum{position:absolute; top:6px; left:6px; z-index:2; min-width:22px; height:22px; padding:0 5px; border-radius:999px; background:rgba(17,24,39,.78); color:#fff; font-size:12.5px; font-weight:700; display:flex; align-items:center; justify-content:center}
   .today-notice{display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:14px}
   .today-notice .tn-title{font-weight:700; font-size:15px}
-  .today-notice .tn-chip{border:none; cursor:pointer; border-radius:999px; padding:7px 13px; font-weight:700; font-size:13.5px}
+  .today-top5{margin-bottom:14px}
+  .today-top5 .tn-title{font-weight:700; font-size:15px; margin-bottom:6px}
+  .t5row{display:flex; align-items:center; flex-wrap:wrap; gap:8px; width:100%; text-align:left; background:none; border:none; border-top:1px solid var(--line); padding:9px 2px; cursor:pointer; font:inherit; color:inherit}
+  .t5num{font-weight:800; color:var(--muted); min-width:15px}
+  .t5topic{font-weight:600; flex:1; min-width:140px}
+  .t5meta{color:var(--muted); font-size:13px; white-space:nowrap}
   .photogrid .ph img{width:100%; height:100%; object-fit:cover; display:block}
 
   /* Điện thoại: thanh tab vừa khít màn hình, không tràn ngang */
@@ -795,18 +800,24 @@ function renderToday() {
     return { name: name, items: items, maxOver: Math.max.apply(null, items.map(overdueDays)) };
   }).sort(function (a, b) { return b.maxOver - a.maxOver; });
 
-  /* Dải thông báo: các môn nên xem lại hôm nay (nhiều bài nhất lên trước) */
+  /* Dải thông báo: 5 bài cần ôn nhất hôm nay (% nhớ thấp nhất trước, trễ lâu nhất trước) */
   const notice = document.getElementById("todayNotice");
-  if (!lessons.length) {
+  if (!lessons.length || !todayList.length) {
     notice.innerHTML = "";
-  } else if (!groupList.length) {
-    notice.innerHTML = '<div class="card today-notice"><span class="tn-title">🎉 Hôm nay không có môn nào cần xem lại.</span></div>';
   } else {
-    const byCount = groupList.slice().sort(function (a, b) { return b.items.length - a.items.length || b.maxOver - a.maxOver; });
-    notice.innerHTML = '<div class="card today-notice"><span class="tn-title">🔔 Hôm nay nên xem lại:</span>' + byCount.map(function (g) {
-      const st = subjStyle(g.name);
-      const nOver = g.items.filter(function (L) { return overdueDays(L) > 0; }).length;
-      return '<button type="button" class="tn-chip" data-g="' + esc(g.name) + '" onclick="setTodaySubj(this.getAttribute(\'data-g\'))" style="background:' + st.bg + ';color:' + st.fg + '">' + esc(g.name) + ' · ' + g.items.length + ' bài' + (nOver ? ' · ' + nOver + ' trễ' : '') + '</button>';
+    const top5 = todayList.slice().sort(function (a, b) {
+      const ra = recallNum(a) == null ? 999 : recallNum(a);
+      const rb = recallNum(b) == null ? 999 : recallNum(b);
+      return ra - rb || overdueDays(b) - overdueDays(a);
+    }).slice(0, 5);
+    const title = top5.length >= 5 ? "🔔 5 bài cần ôn nhất hôm nay:" : ("🔔 " + top5.length + " bài cần ôn hôm nay:");
+    notice.innerHTML = '<div class="card today-top5"><div class="tn-title">' + title + '</div>' + top5.map(function (L, i) {
+      const st = subjStyle(L.subject);
+      return '<button type="button" class="t5row" onclick="openDetail(' + L.row + ')">' +
+        '<span class="t5num">' + (i + 1) + '</span>' +
+        '<span class="subj" style="background:' + st.bg + ';color:' + st.fg + '">' + esc(L.subject) + '</span>' +
+        '<span class="t5topic">' + esc(L.topic) + '</span>' +
+        '<span class="t5meta">' + dueText(L) + ' · Nhớ ' + esc(L.recall || "—") + '</span></button>';
     }).join("") + '</div>';
   }
 
