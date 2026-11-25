@@ -1634,8 +1634,8 @@ function compressImage(file) {
   return new Promise(function (resolve, reject) {
     function done(src, w, h, cleanup) {
       /* Ảnh vừa và nhẹ thì giữ NGUYÊN file gốc, không nén lại cho khỏi mờ chữ */
-      if (Math.max(w, h) <= 2560 && file.size <= 3 * 1024 * 1024) { if (cleanup) cleanup(); resolve(file); return; }
-      const max = 2560;
+      if (Math.max(w, h) <= 1920 && file.size <= 3 * 1024 * 1024) { if (cleanup) cleanup(); resolve(file); return; }
+      const max = 1920;
       const sc = Math.min(1, max / Math.max(w, h));
       const cw = Math.max(1, Math.round(w * sc)), ch = Math.max(1, Math.round(h * sc));
       const c = document.createElement("canvas");
