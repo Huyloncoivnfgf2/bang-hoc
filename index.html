@@ -284,6 +284,10 @@
   .t5num{font-weight:800; color:var(--muted); min-width:15px}
   .t5topic{font-weight:600; flex:1; min-width:140px}
   .t5meta{color:var(--muted); font-size:13px; white-space:nowrap}
+  .boardswitch{display:flex; gap:8px; margin-top:12px}
+  .boardswitch .boardbtn{flex:1; justify-content:center; font-weight:700}
+  .boardswitch .boardbtn.active{background:#2563eb; color:#fff; border-color:#2563eb}
+  body.board-ex .photogrid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
   .dp-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px}
   .dp-head button{border:1px solid var(--line); background:#fff; border-radius:9px; width:36px; height:36px; font-size:18px; cursor:pointer}
   .dp-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:3px; text-align:center}
@@ -341,7 +345,7 @@
   <header class="top">
     <div class="title">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-      Bảng học Spaced Repetition
+      <span id="pageTitle">Bảng học Spaced Repetition</span>
     </div>
     <div class="hbtns">
       <button class="btn" id="btnRefresh" type="button">
@@ -355,6 +359,10 @@
       <span class="chipstat"><b class="n-orange" id="statToday">0</b> cần ôn hôm nay</span>
       <span class="chipstat"><b class="n-red" id="statOver">0</b> trễ hạn</span>
       <span class="chipstat" id="syncInfo" style="display:none"></span>
+    </div>
+    <div class="boardswitch">
+      <button class="btn boardbtn active" id="boardStudy" type="button">📚 Bảng học</button>
+      <button class="btn boardbtn" id="boardEx" type="button">📝 Bảng bài tập</button>
     </div>
   </header>
 
@@ -535,8 +543,8 @@
 <div class="overlay" id="addOverlay">
   <div class="modal modalwrap" role="dialog" aria-modal="true">
     <button class="xbtn" id="addClose" type="button" aria-label="Đóng">✕</button>
-    <h3 style="margin:0 30px 2px 0; font-size:18px">Thêm bài mới</h3>
-    <p style="margin:0; color:var(--muted); font-size:13.5px">Bài sẽ được ghi vào tab <b>Bảng ôn tập</b> trong Google Sheet.</p>
+    <h3 id="addTitle" style="margin:0 30px 2px 0; font-size:18px">Thêm bài mới</h3>
+    <p style="margin:0; color:var(--muted); font-size:13.5px">Bài sẽ được ghi vào tab <b id="fTabName">Bảng ôn tập</b> trong Google Sheet.</p>
     <form class="addform" id="addForm">
       <label>Chủ đề *
         <input id="fTopic" type="text" required placeholder="Tên bài học">
@@ -579,7 +587,42 @@
 /* ===== Firebase config — chép nguyên văn từ web Thư viện Video Bấm Máy ===== */
 const firebaseConfig = { apiKey: "AIzaSyBAyMWdWWYySvGGsGORFZrTj4aM6oj6cpE", authDomain: "giupaedonv1.firebaseapp.com", projectId: "giupaedonv1", storageBucket: "giupaedonv1.firebasestorage.app", messagingSenderId: "1053830682519", appId: "1:1053830682519:web:4a1ceada98de52d8c956d2" };
 const SR_SHEET_ID = "11RklBcauP9tG--BFHY4a5ysHHIrgH43Hb-uPJbqJ27I";
-const SR_TAB = "Bảng ôn tập";
+const BOARD_TABS = { study: "Bảng ôn tập", ex: "Bảng bài tập" };
+let board = "study";
+let SR_TAB = BOARD_TABS.study;
+function cacheKey() { return board === "ex" ? "sb-cache-ex-v1" : "sb-cache-v1"; }
+function applyBoardUI() {
+  const ex = board === "ex";
+  document.body.classList.toggle("board-ex", ex);
+  const bs = document.getElementById("boardStudy");
+  const be = document.getElementById("boardEx");
+  if (bs) bs.classList.toggle("active", !ex);
+  if (be) be.classList.toggle("active", ex);
+  const pt = document.getElementById("pageTitle");
+  if (pt) pt.textContent = ex ? "Bảng bài tập" : "Bảng học Spaced Repetition";
+  const at = document.getElementById("addTitle");
+  if (at) at.textContent = ex ? "Thêm câu bài tập" : "Thêm bài mới";
+  const ba = document.getElementById("btnAdd");
+  if (ba) ba.textContent = ex ? "+ Thêm câu sai" : "+ Thêm bài mới";
+  const ft = document.getElementById("fTabName");
+  if (ft) ft.textContent = SR_TAB;
+  const fs = document.getElementById("fSubmit");
+  if (fs) fs.textContent = "Lưu vào " + SR_TAB;
+}
+function setBoard(b) {
+  if (b === board) return;
+  board = b;
+  SR_TAB = BOARD_TABS[board];
+  try { localStorage.setItem("sb-board", board); } catch (e) {}
+  applyBoardUI();
+  todaySubj = "";
+  const cache = loadCache();
+  lessons = cache ? cache.lessons : [];
+  renderAll_Tabs(false);
+  const tok = getToken();
+  if (tok) refreshWithToken(tok);
+  else if (!cache) showNotice("Bảng này chưa có dữ liệu trên máy này — bấm nút Đăng nhập Google một lần để tải về.");
+}
 const OWNER_EMAIL_SR = "thaonguyenvg19@gmail.com";
 const SHEETS_API = "https://sheets.googleapis.com/v4/spreadsheets/" + SR_SHEET_ID + "/values/";
 
@@ -656,11 +699,11 @@ function getToken() {
 }
 function clearToken() { try { localStorage.removeItem("sb-gtoken"); } catch (e) {} }
 function saveCache(list) {
-  try { localStorage.setItem("sb-cache-v1", JSON.stringify({ at: Date.now(), lessons: list })); } catch (e) {}
+  try { localStorage.setItem(cacheKey(), JSON.stringify({ at: Date.now(), lessons: list })); } catch (e) {}
 }
 function loadCache() {
   try {
-    const c = JSON.parse(localStorage.getItem("sb-cache-v1") || "null");
+    const c = JSON.parse(localStorage.getItem(cacheKey()) || "null");
     if (c && Array.isArray(c.lessons) && c.lessons.length) {
       c.lessons.forEach(function (L) {
         if (!Array.isArray(L.images)) L.images = [];
@@ -1150,7 +1193,7 @@ function openDetail(row) {
     sec("", "📍 Nơi viết / Câu hỏi gợi nhớ", L.notebook) +
     sec("answer", "💡 Đáp án / Gợi ý", L.answer) +
     sec("mistakes", "⚠️ Ghi chú lỗi sai", L.mistakes) +
-    '<div class="d-sec"><h4>🖼️ Ảnh tài liệu (<span id="photoCount">0</span>)</h4><div class="photogrid" id="photoGrid"></div>' +
+    '<div class="d-sec" id="photoSec"><h4>🖼️ Ảnh tài liệu (<span id="photoCount">0</span>)</h4><div class="photogrid" id="photoGrid"></div>' +
     '<button class="btn" id="btnAddPhoto" type="button" style="width:100%;justify-content:center;margin-top:10px">📷 Thêm ảnh — chụp hoặc chọn từ máy</button>' +
     '<input type="file" id="photoInput" accept="image/*" multiple hidden></div>' +
     '<div class="d-sec"><h4>📎 File bài làm (<span id="fileCount">0</span>)</h4><div id="fileList"></div>' +
@@ -1176,6 +1219,13 @@ function openDetail(row) {
       '<button class="btn" id="ePreviewBtn" type="button" style="width:100%;justify-content:center;margin-top:8px">👀 Xem trước lỗi sai & đáp án</button>' +
       '<div id="ePreview" class="note-card" style="display:none;margin-top:10px"></div></div>' +
     '';
+  /* Bảng bài tập: ảnh là chính nên đưa mục ảnh lên trên cùng */
+  if (board === "ex") {
+    const vb = document.getElementById("viewBox");
+    const photoSec = document.getElementById("photoSec");
+    const firstSec = vb && vb.querySelector(".d-sec");
+    if (vb && photoSec && firstSec && photoSec !== firstSec) vb.insertBefore(photoSec, firstSec);
+  }
   renderPhotos(L);
   document.getElementById("btnAddPhoto").addEventListener("click", function () { document.getElementById("photoInput").click(); });
   document.getElementById("photoInput").addEventListener("change", function () { uploadPhotos(L, this.files); this.value = ""; });
@@ -2333,7 +2383,7 @@ document.getElementById("addForm").addEventListener("submit", async function (ev
       const v = i < vals.length && vals[i] ? vals[i][0] : "";
       if (!v || !String(v).trim()) { rowNum = i + 2; break; }
     }
-    if (rowNum < 0) throw new Error("Bảng ôn tập đã đầy 200 dòng.");
+    if (rowNum < 0) throw new Error(SR_TAB + " đã đầy 200 dòng.");
     /* Ghi đúng 7 ô nội dung — KHÔNG ghi cột công thức G/H/O/Q, ô tick I, và KHÔNG đụng tab Hôm nay cần ôn */
     const data = [
       { range: SR_TAB + "!A" + rowNum, values: [[topic]] },
@@ -2359,7 +2409,7 @@ document.getElementById("addForm").addEventListener("submit", async function (ev
   } catch (e) {
     fail("Không lưu được: " + (e.message || e));
   } finally {
-    btn.disabled = false; btn.textContent = "Lưu vào Bảng ôn tập";
+    btn.disabled = false; btn.textContent = "Lưu vào " + SR_TAB;
   }
 });
 
@@ -2400,6 +2450,10 @@ if (_gb) _gb.addEventListener("click", async function () {
   renderNoteFilterChips();
   loadNotesCache();
   renderNotes();
+  try { const b = localStorage.getItem("sb-board"); if (b === "ex" || b === "study") { board = b; SR_TAB = BOARD_TABS[board]; } } catch (e) {}
+  applyBoardUI();
+  document.getElementById("boardStudy").addEventListener("click", function () { setBoard("study"); });
+  document.getElementById("boardEx").addEventListener("click", function () { setBoard("ex"); });
   const cache = loadCache();
   lessons = cache ? cache.lessons : SNAPSHOT.slice();
   renderAll_Tabs(false);
