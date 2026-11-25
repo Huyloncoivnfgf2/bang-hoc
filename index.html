@@ -2414,29 +2414,23 @@ async function fetchLessons(token) {
 }
 async function refreshWithToken(token) {
   const emailAtStart = currentEmail;
+  const boardAtStart = board;
   try {
     await ensureSheetId(token);
-    if (currentEmail !== emailAtStart) return;
+    if (currentEmail !== emailAtStart || board !== boardAtStart) return;
     const data = await fetchLessons(token);
-    if (currentEmail !== emailAtStart) return;
-    if (data.length) {
-      lessons = data;
-      saveCache(data);
-      renderAll_Tabs(true);
-      hideNotice();
-      loadNotes(true);
-      const si = document.getElementById("syncInfo");
-      si.style.display = "";
-      si.textContent = "Đã đồng bộ " + new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
-    } else if (!loadCache()) {
-      lessons = [];
-      renderAll_Tabs(true);
-      hideNotice();
-      loadNotes(true);
-      if (sheetJustCreated) {
-        sheetJustCreated = false;
-        showToast("Đã tạo bảng riêng cho bạn 🎉 Bấm + Thêm bài mới để bắt đầu.");
-      }
+    if (currentEmail !== emailAtStart || board !== boardAtStart) return;
+    lessons = data;
+    saveCache(data);
+    renderAll_Tabs(true);
+    hideNotice();
+    loadNotes(true);
+    const si = document.getElementById("syncInfo");
+    si.style.display = "";
+    si.textContent = "Đã đồng bộ " + new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+    if (sheetJustCreated) {
+      sheetJustCreated = false;
+      showToast("Đã tạo bảng riêng cho bạn 🎉 Bấm + Thêm bài mới để bắt đầu.");
     }
   } catch (e) {
     showNotice("Không đọc được Google Sheet lúc này (" + (e.message || e) + ") - đang hiện dữ liệu đã lưu.");
