@@ -536,7 +536,7 @@
         <span style="display:block; font-weight:400; color:var(--muted); font-size:12.5px; margin-top:3px">Vừa học xong thì để “Mới học” như trong Sheet.</span>
       </label>
       <label>Ngày học
-        <input id="fDate" type="date" required>
+        <input id="fDate" type="text" inputmode="numeric" placeholder="25/11/2026" autocomplete="off" required>
       </label>
       <label>Nơi viết
         <input id="fNotebook" type="text" placeholder="Vở, giấy, máy… (không bắt buộc)">
@@ -1067,7 +1067,9 @@ async function submitEdit(row) {
   const topic = document.getElementById("eTopic").value.trim();
   if (!topic) { fail("Chưa nhập Chủ đề."); return; }
   const subject = document.getElementById("eSubject").value;
-  const dateStr = toDMY(document.getElementById("eDate").value);
+  const rawDate = document.getElementById("eDate").value.trim();
+  if (rawDate && !validDMY(rawDate)) { fail("Ngày học nhập theo dạng ngày/tháng/năm, ví dụ 25/11/2026."); return; }
+  const dateStr = normDMY(rawDate);
   const notebook = document.getElementById("eNotebook").value.trim();
   const mistakes = document.getElementById("eMistakes").value.trim();
   const answer = document.getElementById("eAnswer").value.trim();
@@ -1146,7 +1148,7 @@ function openDetail(row) {
     '<div id="editBox" style="display:none;margin-top:14px"><form class="addform" id="editForm">' +
       '<label>Chủ đề *<input id="eTopic" type="text" required></label>' +
       '<label>Môn<select id="eSubject">' + (SUBJECTS.indexOf(L.subject) >= 0 ? SUBJECTS : SUBJECTS.concat([L.subject])).map(function (x) { return '<option' + (x === L.subject ? ' selected' : '') + '>' + esc(x) + '</option>'; }).join("") + '</select></label>' +
-      '<label>Ngày học<input id="eDate" type="date"></label>' +
+      '<label>Ngày học<input id="eDate" type="text" inputmode="numeric" placeholder="25/11/2026" autocomplete="off"></label>' +
       '<label>Nơi viết / Câu hỏi gợi nhớ<input id="eNotebook" type="text"></label>' +
       '<label>Ghi chú lỗi sai<textarea id="eMistakes" rows="5"></textarea></label>' +
       '<label>Đáp án / Gợi ý<textarea id="eAnswer" rows="5"></textarea></label>' +
@@ -1169,7 +1171,8 @@ function openDetail(row) {
   document.getElementById("btnReviewed").addEventListener("click", function () { openGrade(L); });
   document.getElementById("btnEdit").addEventListener("click", function () {
     document.getElementById("eTopic").value = L.topic || "";
-    document.getElementById("eDate").value = dmyToIso(L.learnedDate);
+    document.getElementById("eDate").value = L.learnedDate || "";
+    wireDateInput(document.getElementById("eDate"));
     document.getElementById("eNotebook").value = L.notebook || "";
     document.getElementById("eMistakes").value = L.mistakes || "";
     document.getElementById("eAnswer").value = L.answer || "";
@@ -2192,7 +2195,7 @@ function openAdd() {
   document.getElementById("fError").classList.remove("show");
   const d = new Date();
   const iso = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
-  document.getElementById("fDate").value = iso;
+  document.getElementById("fDate").value = toDMY(iso);
   document.getElementById("fGrade").value = "Mới học";
   addOverlay.classList.add("open");
 }
@@ -2205,6 +2208,29 @@ function toDMY(iso) {
   const p = String(iso || "").split("-");
   return p.length === 3 ? p[2] + "/" + p[1] + "/" + p[0] : "";
 }
+/* Ô ngày kiểu Việt Nam: gõ số là tự chèn dấu / thành ngày/tháng/năm */
+function wireDateInput(el) {
+  if (!el || el._dateWired) return;
+  el._dateWired = true;
+  el.addEventListener("input", function () {
+    const d = el.value.replace(/\D/g, "").slice(0, 8);
+    let out = d;
+    if (d.length > 4) out = d.slice(0, 2) + "/" + d.slice(2, 4) + "/" + d.slice(4);
+    else if (d.length > 2) out = d.slice(0, 2) + "/" + d.slice(2);
+    el.value = out;
+  });
+}
+function normDMY(v) {
+  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(v || "").trim());
+  return m ? m[1].padStart(2, "0") + "/" + m[2].padStart(2, "0") + "/" + m[3] : "";
+}
+function validDMY(v) {
+  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(v || "").trim());
+  if (!m) return false;
+  const d = new Date(+m[3], +m[2] - 1, +m[1]);
+  return d.getFullYear() === +m[3] && d.getMonth() === +m[2] - 1 && d.getDate() === +m[1];
+}
+wireDateInput(document.getElementById("fDate"));
 document.getElementById("addForm").addEventListener("submit", async function (ev) {
   ev.preventDefault();
   const errBox = document.getElementById("fError");
@@ -2214,8 +2240,8 @@ document.getElementById("addForm").addEventListener("submit", async function (ev
   if (!topic) { fail("Chưa nhập Chủ đề."); return; }
   const subject = document.getElementById("fSubject").value;
   const grade = document.getElementById("fGrade").value;
-  const dateStr = toDMY(document.getElementById("fDate").value);
-  if (!dateStr) { fail("Ngày học chưa hợp lệ."); return; }
+  const dateStr = normDMY(document.getElementById("fDate").value);
+  if (!validDMY(dateStr)) { fail("Ngày học nhập theo dạng ngày/tháng/năm, ví dụ 25/11/2026."); return; }
   const notebook = document.getElementById("fNotebook").value.trim();
   const mistakes = document.getElementById("fMistakes").value.trim();
   const answer = document.getElementById("fAnswer").value.trim();
