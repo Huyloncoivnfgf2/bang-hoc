@@ -276,6 +276,9 @@
   .photogrid .ph{padding:0; border:1px solid var(--line); border-radius:12px; overflow:hidden; background:#EEF2F7; cursor:pointer; aspect-ratio:4/3}
   .photogrid .ph{position:relative}
   .photogrid .phnum{position:absolute; top:6px; left:6px; z-index:2; min-width:22px; height:22px; padding:0 5px; border-radius:999px; background:rgba(17,24,39,.78); color:#fff; font-size:12.5px; font-weight:700; display:flex; align-items:center; justify-content:center}
+  .today-notice{display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:14px}
+  .today-notice .tn-title{font-weight:700; font-size:15px}
+  .today-notice .tn-chip{border:none; cursor:pointer; border-radius:999px; padding:7px 13px; font-weight:700; font-size:13.5px}
   .photogrid .ph img{width:100%; height:100%; object-fit:cover; display:block}
 
   /* Điện thoại: thanh tab vừa khít màn hình, không tràn ngang */
@@ -364,6 +367,7 @@
 
   <!-- ===== TAB HÔM NAY ===== -->
   <section class="tabpane active" id="pane-today">
+    <div id="todayNotice"></div>
     <div class="summary-grid">
       <div class="card">
         <h3>Phân bố theo môn</h3>
@@ -790,6 +794,21 @@ function renderToday() {
     });
     return { name: name, items: items, maxOver: Math.max.apply(null, items.map(overdueDays)) };
   }).sort(function (a, b) { return b.maxOver - a.maxOver; });
+
+  /* Dải thông báo: các môn nên xem lại hôm nay (nhiều bài nhất lên trước) */
+  const notice = document.getElementById("todayNotice");
+  if (!lessons.length) {
+    notice.innerHTML = "";
+  } else if (!groupList.length) {
+    notice.innerHTML = '<div class="card today-notice"><span class="tn-title">🎉 Hôm nay không có môn nào cần xem lại.</span></div>';
+  } else {
+    const byCount = groupList.slice().sort(function (a, b) { return b.items.length - a.items.length || b.maxOver - a.maxOver; });
+    notice.innerHTML = '<div class="card today-notice"><span class="tn-title">🔔 Hôm nay nên xem lại:</span>' + byCount.map(function (g) {
+      const st = subjStyle(g.name);
+      const nOver = g.items.filter(function (L) { return overdueDays(L) > 0; }).length;
+      return '<button type="button" class="tn-chip" data-g="' + esc(g.name) + '" onclick="setTodaySubj(this.getAttribute(\'data-g\'))" style="background:' + st.bg + ';color:' + st.fg + '">' + esc(g.name) + ' · ' + g.items.length + ' bài' + (nOver ? ' · ' + nOver + ' trễ' : '') + '</button>';
+    }).join("") + '</div>';
+  }
 
   const box = document.getElementById("todayGroups");
   if (!groupList.length) { box.innerHTML = ""; return; }
