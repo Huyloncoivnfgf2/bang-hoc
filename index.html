@@ -1243,7 +1243,7 @@ function openDetail(row) {
       '<label>Chủ đề *<input id="eTopic" type="text" required></label>' +
       '<label>Môn<select id="eSubject">' + (SUBJECTS.indexOf(L.subject) >= 0 ? SUBJECTS : SUBJECTS.concat([L.subject])).map(function (x) { return '<option' + (x === L.subject ? ' selected' : '') + '>' + esc(x) + '</option>'; }).join("") + '</select></label>' +
       '<label>Ngày học<span style="display:flex;gap:8px"><input id="eDate" type="text" inputmode="numeric" placeholder="25/11/2026" autocomplete="off" style="flex:1;min-width:0"><button class="btn" id="eDateCal" type="button" aria-label="Chọn ngày">📅</button></span></label>' +
-      '<label>Nơi viết / Câu hỏi gợi nhớ<input id="eNotebook" type="text"></label>' +
+      '<label><span style="display:flex;align-items:center;gap:6px">' + (board === "ex" ? "Đề bài" : "Nơi viết / Câu hỏi gợi nhớ") + '<button class="btn small" id="eMathBtn" type="button" title="Chèn công thức $...$" style="margin-left:auto;padding:3px 10px;font-size:12.5px">∑ Math</button></span><textarea id="eNotebook" rows="3"></textarea></label>' +
       '<label>Ghi chú lỗi sai<textarea id="eMistakes" rows="5"></textarea></label>' +
       '<label>Đáp án / Gợi ý<textarea id="eAnswer" rows="5"></textarea></label>' +
       '<div class="formerr" id="eError"></div>' +
@@ -1267,7 +1267,14 @@ function openDetail(row) {
   document.getElementById("btnAddFile").addEventListener("click", function () { document.getElementById("fileInput").click(); });
   document.getElementById("fileInput").addEventListener("change", function () { uploadFiles(L, this.files); this.value = ""; });
   document.getElementById("ePreviewBtn").addEventListener("click", function () {
-    toggleLessonPreview("ePreview", document.getElementById("eMistakes").value, document.getElementById("eAnswer").value, this, "👀 Xem trước lỗi sai & đáp án");
+    toggleLessonPreview("ePreview", document.getElementById("eMistakes").value, document.getElementById("eAnswer").value, this, "👀 Xem trước", document.getElementById("eNotebook").value);
+  });
+  document.getElementById("eMathBtn").addEventListener("click", function () {
+    const ta = document.getElementById("eNotebook");
+    const start = ta.selectionStart || 0, end = ta.selectionEnd || 0;
+    ta.value = ta.value.slice(0, start) + "$ $" + ta.value.slice(end);
+    ta.focus();
+    ta.setSelectionRange(start + 2, start + 2);
   });
   document.getElementById("btnReviewed").addEventListener("click", function () { openGrade(L); });
   document.getElementById("btnEdit").addEventListener("click", function () {
@@ -1280,7 +1287,7 @@ function openDetail(row) {
     document.getElementById("eAnswer").value = L.answer || "";
     const epv = document.getElementById("ePreview");
     epv.style.display = "none"; epv.innerHTML = "";
-    document.getElementById("ePreviewBtn").textContent = "👀 Xem trước lỗi sai & đáp án";
+    document.getElementById("ePreviewBtn").textContent = "👀 Xem trước";
     document.getElementById("viewBox").style.display = "none";
     document.querySelector(".reviewbox").style.display = "none";
     this.style.display = "none";
