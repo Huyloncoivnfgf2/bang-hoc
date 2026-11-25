@@ -1663,7 +1663,9 @@ function loadPdfJs() {
   return loadScriptOnce("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js", function () { return !!window.pdfjsLib; })
     .then(function () { window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"; });
 }
+const fileBlobCache = {};
 async function fetchFileBlob(id) {
+  if (fileBlobCache[id]) return fileBlobCache[id];
   let tok = await tokenOrSilent();
   if (!tok) throw new Error("no-token");
   let r = await fetch(DRIVE_API + "/" + id + "?alt=media", { headers: { Authorization: "Bearer " + tok } });
@@ -1673,7 +1675,9 @@ async function fetchFileBlob(id) {
     if (tok) r = await fetch(DRIVE_API + "/" + id + "?alt=media", { headers: { Authorization: "Bearer " + tok } });
   }
   if (!r.ok) throw new Error("file-" + r.status);
-  return r.blob();
+  const blob = await r.blob();
+  fileBlobCache[id] = blob;
+  return blob;
 }
 async function openFile(L, idx) {
   const f = L.files[idx];
@@ -1705,6 +1709,7 @@ async function openFile(L, idx) {
 function closeFile() {
   document.getElementById("fileOverlay").classList.remove("open");
   document.getElementById("fileBody").innerHTML = "";
+  if (fileView && fileView.pageObserver) { try { fileView.pageObserver.disconnect(); } catch (e) {} }
   if (fileView && fileView.pdfDoc) { try { fileView.pdfDoc.destroy(); } catch (e) {} }
   fileView = null;
 }
@@ -1721,18 +1726,28 @@ async function renderAllPages() {
   document.getElementById("filePageInfo").textContent = total ? (total + " trang — cuộn xuống để xem tiếp") : "";
   body.innerHTML = "";
   body.scrollTop = 0;
+  if (fv.pageObserver) { try { fv.pageObserver.disconnect(); } catch (e) {} fv.pageObserver = null; }
   const status = document.createElement("div");
   status.style.cssText = "color:var(--muted);font-size:13px;padding:6px 0";
+  status.textContent = "⏳ Đang chuẩn bị các trang…";
   body.appendChild(status);
+  let io = null;
+  if ("IntersectionObserver" in window) {
+    io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (en.isIntersecting) { const c = en.target; io.unobserve(c); if (c._paint) c._paint(); }
+      });
+    }, { root: body, rootMargin: "900px 0px" });
+    fv.pageObserver = io;
+  }
   for (let i = 1; i <= total; i++) {
     if (fileView !== fv) return;
-    status.textContent = "⏳ Đang dựng trang " + i + " / " + total + "…";
     const label = document.createElement("div");
     label.style.cssText = "font-weight:700;font-size:13px;color:var(--muted);margin:16px 0 6px";
     label.textContent = "— Trang " + i + " —";
     body.appendChild(label);
     try {
-      if (fv.pdfDoc) await appendPdfPage(body, fv, i);
+      if (fv.pdfDoc) await appendPdfPage(body, fv, i, io);
     } catch (e) {
       const err = document.createElement("div");
       err.style.cssText = "color:var(--red);font-size:13.5px;padding:8px 0";
@@ -1743,20 +1758,30 @@ async function renderAllPages() {
   if (fileView !== fv) return;
   status.remove();
 }
-async function appendPdfPage(body, fv, i) {
+async function appendPdfPage(body, fv, i, io) {
   const page = await fv.pdfDoc.getPage(i);
   const viewport = page.getViewport({ scale: fv.scale });
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
   const canvas = document.createElement("canvas");
   canvas.className = "pdfcanvas";
-  canvas.width = Math.round(viewport.width * dpr);
-  canvas.height = Math.round(viewport.height * dpr);
   canvas.style.width = Math.round(viewport.width) + "px";
+  canvas.style.aspectRatio = viewport.width + " / " + viewport.height;
   canvas.style.marginBottom = "6px";
   body.appendChild(canvas);
-  const ctx = canvas.getContext("2d");
-  ctx.scale(dpr, dpr);
-  await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+  let done = false;
+  async function paint() {
+    if (done || fileView !== fv) return;
+    done = true;
+    const dpr = Math.min(1.5, window.devicePixelRatio || 1);
+    canvas.width = Math.round(viewport.width * dpr);
+    canvas.height = Math.round(viewport.height * dpr);
+    try {
+      const ctx = canvas.getContext("2d");
+      ctx.scale(dpr, dpr);
+      await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+    } catch (e) {}
+  }
+  if (io) { canvas._paint = paint; io.observe(canvas); }
+  else paint();
 }
 
 let currentImg = null;
