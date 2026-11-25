@@ -303,8 +303,9 @@
   .filerow .fname{flex:1; min-width:0; font-weight:600; font-size:14.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
   .filerow .ftag{flex:none; font-size:11px; font-weight:800; letter-spacing:.04em; padding:3px 8px; border-radius:7px; background:var(--accent-soft); color:var(--accent)}
   .filerow .ftag.xopp{background:var(--orange-soft); color:var(--orange)}
-  #fileOverlay .modal{max-width:900px}
-  .pdfcanvas{display:block; margin:0 auto; max-width:100%; height:auto; border-radius:8px; box-shadow:0 2px 14px rgba(26,35,50,.18); background:#fff}
+  #fileOverlay .modal{max-width:1180px}
+  .pdfcanvas{display:block; margin:0 auto; height:auto; border-radius:8px; box-shadow:0 2px 14px rgba(26,35,50,.18); background:#fff}
+  #filePages{width:max-content; min-width:100%; margin:0 auto}
   .pdfnav{display:flex; align-items:center; gap:8px; justify-content:center; margin-top:12px; flex-wrap:wrap}
   .pdfnav .btn:disabled{opacity:.45; cursor:default}
 </style>
@@ -477,9 +478,10 @@
     <button class="xbtn" id="fileClose" type="button" aria-label="Đóng">✕</button>
     <h3 id="fileTitle" style="margin:0 36px 4px 0;font-size:16px">File bài làm</h3>
     <div id="fileSub" style="color:var(--muted);font-size:13px;margin-bottom:10px"></div>
-    <div id="fileBody" style="overflow:auto;max-height:68vh;text-align:center"></div>
+    <div id="fileBody" style="overflow:auto;max-height:74vh;text-align:center"></div>
     <div class="pdfnav">
       <span id="filePageInfo" style="font-weight:600;font-size:14px"></span>
+      <span style="display:inline-flex;gap:6px;align-items:center"><input id="fileJump" type="number" min="1" inputmode="numeric" placeholder="Số trang" style="width:88px;padding:7px 9px;border:1px solid var(--line);border-radius:9px;font:inherit;font-size:14px"><button class="btn small" id="fileGo" type="button">Đi tới</button></span>
       <button class="btn small" id="fileZoomOut" type="button">− Thu nhỏ</button>
       <button class="btn small" id="fileZoomIn" type="button">＋ Phóng to</button>
     </div>
@@ -1719,11 +1721,18 @@ async function openFile(L, idx) {
   document.getElementById("fileSub").textContent = "File PDF — xem ngay trên web";
   document.getElementById("fileBody").innerHTML = '<div style="color:var(--muted);padding:40px 0">⏳ Đang tải file…</div>';
   document.getElementById("filePageInfo").textContent = "";
+  const j0 = document.getElementById("fileJump"); if (j0) j0.value = "";
   document.getElementById("fileOverlay").classList.add("open");
   try {
     await loadPdfJs();
     const blob = await fetchFileBlob(f.id);
     fileView.pdfDoc = await window.pdfjsLib.getDocument({ data: await blob.arrayBuffer() }).promise;
+    try {
+      const p1 = await fileView.pdfDoc.getPage(1);
+      const w1 = p1.getViewport({ scale: 1 }).width;
+      const fitW = Math.max(280, (document.getElementById("fileBody").clientWidth || 800) - 12);
+      if (w1 > 0) fileView.scale = Math.min(1.4, fitW / w1);
+    } catch (e) {}
     await renderAllPages();
   } catch (e) {
     const body = document.getElementById("fileBody");
@@ -1745,6 +1754,16 @@ function closeFile() {
   if (fileView && fileView.pdfDoc) { try { fileView.pdfDoc.destroy(); } catch (e) {} }
   fileView = null;
 }
+function jumpToPage() {
+  if (!fileView) return;
+  const inp = document.getElementById("fileJump");
+  const total = fileTotalPages();
+  let n = parseInt(inp && inp.value, 10);
+  if (!n || !total) return;
+  n = Math.min(Math.max(1, n), total);
+  const el = document.getElementById("filePage-" + n);
+  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+}
 function fileTotalPages() {
   if (!fileView) return 0;
   if (fileView.pdfDoc) return fileView.pdfDoc.numPages;
@@ -1758,11 +1777,16 @@ async function renderAllPages() {
   document.getElementById("filePageInfo").textContent = total ? (total + " trang — cuộn xuống để xem tiếp") : "";
   body.innerHTML = "";
   body.scrollTop = 0;
+  const wrap = document.createElement("div");
+  wrap.id = "filePages";
+  body.appendChild(wrap);
+  const jump = document.getElementById("fileJump");
+  if (jump) { jump.max = total || ""; jump.placeholder = total ? ("Trang 1–" + total) : "Số trang"; }
   if (fv.pageObserver) { try { fv.pageObserver.disconnect(); } catch (e) {} fv.pageObserver = null; }
   const status = document.createElement("div");
   status.style.cssText = "color:var(--muted);font-size:13px;padding:6px 0";
   status.textContent = "⏳ Đang chuẩn bị các trang…";
-  body.appendChild(status);
+  wrap.appendChild(status);
   let io = null;
   if ("IntersectionObserver" in window) {
     io = new IntersectionObserver(function (entries) {
@@ -1777,14 +1801,16 @@ async function renderAllPages() {
     const label = document.createElement("div");
     label.style.cssText = "font-weight:700;font-size:13px;color:var(--muted);margin:16px 0 6px";
     label.textContent = "— Trang " + i + " —";
-    body.appendChild(label);
+    label.id = "filePage-" + i;
+    label.style.scrollMarginTop = "6px";
+    wrap.appendChild(label);
     try {
-      if (fv.pdfDoc) await appendPdfPage(body, fv, i, io);
+      if (fv.pdfDoc) await appendPdfPage(wrap, fv, i, io);
     } catch (e) {
       const err = document.createElement("div");
       err.style.cssText = "color:var(--red);font-size:13.5px;padding:8px 0";
       err.textContent = "Trang " + i + " chưa dựng được.";
-      body.appendChild(err);
+      wrap.appendChild(err);
     }
   }
   if (fileView !== fv) return;
@@ -2267,6 +2293,8 @@ if (_gb) _gb.addEventListener("click", async function () {
   document.getElementById("fileOverlay").addEventListener("click", function (e) { if (e.target === this) closeFile(); });
   document.getElementById("fileZoomIn").addEventListener("click", function () { if (fileView) { fileView.scale = Math.min(3, fileView.scale + 0.3); renderAllPages(); } });
   document.getElementById("fileZoomOut").addEventListener("click", function () { if (fileView) { fileView.scale = Math.max(0.7, fileView.scale - 0.3); renderAllPages(); } });
+  document.getElementById("fileGo").addEventListener("click", jumpToPage);
+  document.getElementById("fileJump").addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); jumpToPage(); } });
   document.getElementById("imgClose").addEventListener("click", closeImg);
   document.getElementById("imgOverlay").addEventListener("click", function (e) { if (e.target === this) closeImg(); });
   document.getElementById("imgDelete").addEventListener("click", deleteCurrentImg);
