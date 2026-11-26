@@ -2262,6 +2262,19 @@ function openImg(L, idx, kind) {
       '<button class="btn small" id="imgZoomReset" type="button">Vừa khung</button>' +
       '<span style="color:var(--muted);font-size:12.5px">Chụm 2 ngón để phóng to, kéo để xem, chạm 2 lần để về vừa khung</span></div>';
     wireImgZoom();
+    const zim = document.getElementById("imgZoomImg");
+    const zwrap = document.getElementById("imgZoomWrap");
+    function fitImgFrame() {
+      if (!zim || !zwrap || !zim.naturalWidth) return;
+      const availW = zwrap.parentElement ? zwrap.parentElement.clientWidth : zwrap.clientWidth;
+      const maxH = Math.min(window.innerHeight * 0.76, 980);
+      const sc = Math.min(availW / zim.naturalWidth, maxH / zim.naturalHeight);
+      zwrap.style.width = Math.round(zim.naturalWidth * sc) + "px";
+      zwrap.style.height = Math.round(zim.naturalHeight * sc) + "px";
+      zwrap.style.margin = "0 auto";
+    }
+    if (zim && zim.complete && zim.naturalWidth) fitImgFrame();
+    else if (zim) zim.addEventListener("load", fitImgFrame);
     dl.href = u;
     dl.setAttribute("download", L.topic + ".jpg");
   }).catch(function () {
