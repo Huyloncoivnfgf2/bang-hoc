@@ -611,10 +611,10 @@
         <textarea id="fNotebook" rows="3" placeholder="Vở, giấy, máy… (không bắt buộc)"></textarea>
       </label>
       <div id="fPhotoZone" style="display:none;flex-direction:column;gap:5px">
-        <span style="font-size:13.5px;font-weight:600;color:var(--muted)">Ảnh đề bài</span>
+        <span id="fPhotoLabelText" style="font-size:13.5px;font-weight:600;color:var(--muted)">Ảnh đề bài</span>
         <div id="fPhotoDrop" tabindex="0" role="button" style="display:flex;flex-direction:column;align-items:center;gap:4px;border:1.5px dashed var(--line);border-radius:12px;padding:16px 12px;background:#FBFCFE;cursor:pointer;text-align:center">
           <span style="font-size:22px">📷</span>
-          <span style="font-size:14px;font-weight:600;color:var(--ink)">Bấm để chụp hoặc chọn ảnh đề bài</span>
+          <span id="fPhotoDropText" style="font-size:14px;font-weight:600;color:var(--ink)">Bấm để chụp hoặc chọn ảnh đề bài</span>
           <span style="font-size:12.5px;color:var(--muted)">Trên máy tính: chụp màn hình rồi dán ảnh vào đây (Ctrl+V)</span>
         </div>
         <input type="file" id="fPhotoInput" accept="image/*" multiple hidden>
@@ -629,6 +629,16 @@
         </div>
         <input type="file" id="fWorkInput" accept="image/*" multiple hidden>
         <div id="fWorkThumbs" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+      </div>
+      <div id="fFileZone" style="display:none;flex-direction:column;gap:5px">
+        <span style="font-size:13.5px;font-weight:600;color:var(--muted)">File bài làm (PDF)</span>
+        <div id="fFileDrop" tabindex="0" role="button" style="display:flex;flex-direction:column;align-items:center;gap:4px;border:1.5px dashed var(--line);border-radius:12px;padding:16px 12px;background:#FBFCFE;cursor:pointer;text-align:center">
+          <span style="font-size:22px">📎</span>
+          <span style="font-size:14px;font-weight:600;color:var(--ink)">Bấm để chọn file PDF bài làm</span>
+          <span style="font-size:12.5px;color:var(--muted)">File PDF xem được ngay trên web (không bắt buộc)</span>
+        </div>
+        <input type="file" id="fFileInput" accept=".pdf,application/pdf" multiple hidden>
+        <div id="fFileList" style="display:flex;flex-direction:column;gap:6px"></div>
       </div>
       <label>Ghi chú lỗi sai
         <textarea id="fMistakes" rows="4" placeholder="Không bắt buộc"></textarea>
@@ -2790,14 +2800,56 @@ document.getElementById("fPhotoInput").addEventListener("change", function () { 
 document.getElementById("fWorkInput").addEventListener("change", function () { queueAddWorkPhotos(this.files); this.value = ""; });
 document.getElementById("fWorkDrop").addEventListener("click", function () { document.getElementById("fWorkInput").click(); });
 document.getElementById("fWorkDrop").addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); document.getElementById("fWorkInput").click(); } });
+let addFileFiles = [];
+function renderAddFileList() {
+  const box = document.getElementById("fFileList");
+  if (!box) return;
+  box.innerHTML = "";
+  addFileFiles.forEach(function (f, i) {
+    const d = document.createElement("div");
+    d.style.cssText = "display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:10px;padding:7px 10px;background:#FBFCFE";
+    const sz = f.size >= 1048576 ? (f.size / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(f.size / 1024)) + " KB";
+    d.innerHTML = '<span style="font-size:13px;font-weight:700;color:var(--red)">PDF</span><span style="flex:1;min-width:0;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(f.name) + '</span><span style="font-size:12.5px;color:var(--muted)">' + sz + '</span><button type="button" style="border:0;background:rgba(17,24,39,.75);color:#fff;width:20px;height:20px;border-radius:50%;font-size:11px;cursor:pointer;flex:none">✕</button>';
+    d.querySelector("button").addEventListener("click", function () { addFileFiles.splice(i, 1); renderAddFileList(); });
+    box.appendChild(d);
+  });
+}
+function queueAddFiles(files) {
+  const list = Array.prototype.slice.call(files || []).filter(function (f) { return f && fileKind(f.name); });
+  if (!list.length) { if (files && files.length) showToast("Chỉ nhận file PDF nhé."); return false; }
+  addFileFiles = addFileFiles.concat(list);
+  renderAddFileList();
+  return true;
+}
+async function uploadAddFiles(rowNum, tok) {
+  const files = addFileFiles.slice();
+  if (!files.length) return 0;
+  const folderId = await ensurePhotoFolder(tok);
+  const out = [];
+  for (const f of files) {
+    const id = await uploadFileResumable(tok, folderId, f);
+    out.push({ t: fileKind(f.name), id: id, n: f.name });
+  }
+  const range = SR_TAB + "!T" + rowNum;
+  const r = await fetch(SHEETS_API + encodeURIComponent(range) + "?valueInputOption=USER_ENTERED", {
+    method: "PUT",
+    headers: { Authorization: "Bearer " + tok, "Content-Type": "application/json" },
+    body: JSON.stringify({ range: range, majorDimension: "ROWS", values: [[JSON.stringify(out)]] })
+  });
+  if (!r.ok) throw new Error("sheet-save-" + r.status);
+  return out.length;
+}
+document.getElementById("fFileInput").addEventListener("change", function () { queueAddFiles(this.files); this.value = ""; });
+document.getElementById("fFileDrop").addEventListener("click", function () { document.getElementById("fFileInput").click(); });
+document.getElementById("fFileDrop").addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); document.getElementById("fFileInput").click(); } });
 document.getElementById("fPhotoDrop").addEventListener("click", function () { document.getElementById("fPhotoInput").click(); });
 document.getElementById("fPhotoDrop").addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); document.getElementById("fPhotoInput").click(); } });
 addOverlay.addEventListener("paste", function (e) {
-  if (!addOverlay.classList.contains("open") || board !== "ex") return;
+  if (!addOverlay.classList.contains("open")) return;
   const items = (e.clipboardData && e.clipboardData.items) || [];
   const imgs = [];
   for (let i = 0; i < items.length; i++) { if (items[i].type && items[i].type.indexOf("image/") === 0) { const f = items[i].getAsFile(); if (f) imgs.push(f); } }
-  if (imgs.length) { e.preventDefault(); queueAddPhotos(imgs); showToast("Đã dán " + imgs.length + " ảnh đề bài 📷"); }
+  if (imgs.length) { e.preventDefault(); queueAddPhotos(imgs); showToast("Đã dán " + imgs.length + (board === "ex" ? " ảnh đề bài" : " ảnh tài liệu") + " 📷"); }
 });
 document.getElementById("fMathBtn").addEventListener("click", function () {
   const ta = document.getElementById("fNotebook");
@@ -2814,10 +2866,17 @@ function openAdd() {
   document.getElementById("fGrade").value = "Mới học";
   addPhotoFiles = []; renderAddPhotoThumbs();
   addWorkFiles = []; renderAddWorkThumbs();
+  addFileFiles = []; renderAddFileList();
   const pz = document.getElementById("fPhotoZone");
-  if (pz) pz.style.display = board === "ex" ? "flex" : "none";
+  if (pz) pz.style.display = "flex";
+  const plt = document.getElementById("fPhotoLabelText");
+  if (plt) plt.textContent = board === "ex" ? "Ảnh đề bài" : "Ảnh tài liệu";
+  const pdt = document.getElementById("fPhotoDropText");
+  if (pdt) pdt.textContent = board === "ex" ? "Bấm để chụp hoặc chọn ảnh đề bài" : "Bấm để chụp hoặc chọn ảnh tài liệu";
   const wz = document.getElementById("fWorkZone");
   if (wz) wz.style.display = board === "ex" ? "flex" : "none";
+  const fz = document.getElementById("fFileZone");
+  if (fz) fz.style.display = "flex";
   const ft = document.getElementById("fTopic");
   const ftt = document.getElementById("fTopicLabelText");
   if (ft) { ft.required = board !== "ex"; ft.placeholder = board === "ex" ? "Không bắt buộc - để trống web tự đặt tên" : "Tên bài học"; }
@@ -2966,12 +3025,12 @@ document.getElementById("addForm").addEventListener("submit", async function (ev
     }
     let photoNote = "";
     if (addPhotoFiles.length) {
-      btn.textContent = "Đang tải ảnh đề…";
+      btn.textContent = board === "ex" ? "Đang tải ảnh đề…" : "Đang tải ảnh…";
       try {
         const n = await uploadAddPhotos(rowNum, topic, tok);
-        photoNote = " + " + n + " ảnh đề bài";
+        photoNote = " + " + n + (board === "ex" ? " ảnh đề bài" : " ảnh tài liệu");
       } catch (e2) {
-        photoNote = " (chưa tải được ảnh đề bài: " + (e2.message || e2) + ")";
+        photoNote = " (chưa tải được ảnh: " + (e2.message || e2) + ")";
       }
       addPhotoFiles = []; renderAddPhotoThumbs();
     }
@@ -2984,6 +3043,16 @@ document.getElementById("addForm").addEventListener("submit", async function (ev
         photoNote += " (chưa tải được ảnh bài làm: " + (e3.message || e3) + ")";
       }
       addWorkFiles = []; renderAddWorkThumbs();
+    }
+    if (addFileFiles.length) {
+      btn.textContent = "Đang tải file PDF…";
+      try {
+        const nf = await uploadAddFiles(rowNum, tok);
+        photoNote += " + " + nf + " file PDF";
+      } catch (e4) {
+        photoNote += " (chưa tải được file PDF: " + (e4.message || e4) + ")";
+      }
+      addFileFiles = []; renderAddFileList();
     }
     closeAdd();
     document.getElementById("addForm").reset();
