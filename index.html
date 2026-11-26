@@ -317,9 +317,9 @@
   .workhead.open .chev{transform:rotate(90deg)}
   /* Bảng bài tập: lưới ô nhỏ - điện thoại 3 ô/hàng, máy tính 5 ô/hàng, số thứ tự trong vòng tròn */
   .rownum{display:none}
-  body.board-ex .rows, body.board-ex .grow2{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px}
+  body.board-ex .gaccord .rows, body.board-ex .gmain > .grouphead + .rows, body.board-ex .grow2, body.board-ex #allRows{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px}
   body.board-ex .rows.collapsed{display:none}
-  @media(min-width:1024px){body.board-ex .rows, body.board-ex .grow2{grid-template-columns:repeat(5,minmax(0,1fr))}}
+  @media(min-width:1024px){body.board-ex .gaccord .rows, body.board-ex .gmain > .grouphead + .rows, body.board-ex .grow2, body.board-ex #allRows{grid-template-columns:repeat(5,minmax(0,1fr))}}
   body.board-ex .row{flex-direction:column; flex-wrap:nowrap; align-items:center; text-align:center; padding:10px 8px 8px; gap:4px; row-gap:4px; border-radius:14px}
   body.board-ex .rownum{display:flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:50%; font-size:14px; font-weight:800; flex:none}
   body.board-ex .row-main{flex:none; width:100%}
@@ -1015,6 +1015,7 @@ function renderToday() {
         '<span class="gs-meta"><b>' + g.items.length + ' bài</b> · ' + nO + ' trễ hạn<br>Trễ nhất ' + worst + ' ngày · Nhớ thấp nhất ' + (lowR === 999 ? "-" : lowR + "%") + '</span>' +
         '<span class="gsbar"><i style="background:' + s2.bar + ';width:' + Math.round(g.items.length / totT * 100) + '%"></i></span></button>';
     }).join("") + '</div>';
+    idx = 0;
     let detail;
     if (todaySubj) {
       const g = groupList.find(function (x) { return x.name === todaySubj; });
