@@ -1296,6 +1296,7 @@ function openDetail(row) {
     sec("mistakes", "⚠️ Ghi chú lỗi sai", L.mistakes) +
     '<div class="d-sec" id="photoSec"><h4>' + (board === "ex" ? "🖼️ Ảnh đề bài" : "🖼️ Ảnh tài liệu") + ' (<span id="photoCount">0</span>)</h4><div class="photogrid" id="photoGrid"></div>' +
     '<button class="btn" id="btnAddPhoto" type="button" style="width:100%;justify-content:center;margin-top:10px">📷 ' + (board === "ex" ? "Thêm ảnh đề bài" : "Thêm ảnh") + ' - chụp hoặc chọn từ máy</button>' +
+    '<div style="font-size:12.5px;color:var(--muted);margin-top:6px;text-align:center">Trên máy tính: di chuột vào mục này rồi dán ảnh (Ctrl+V)</div>' +
     '<input type="file" id="photoInput" accept="image/*" multiple hidden></div>' +
     (board === "ex" ? workSectionHTML() : fileSectionHTML()) +
     '<div class="d-sec"><h4>🕘 Lịch sử ôn</h4><div class="hist" style="margin-top:0">' + esc(L.history || "Chưa có lịch sử ôn.") + '</div></div></div>' +
@@ -1327,6 +1328,12 @@ function openDetail(row) {
     if (workSec && photoSec) photoSec.after(workSec);
   }
   renderPhotos(L);
+  detailLesson = L;
+  const ps = document.getElementById("photoSec");
+  if (ps) ps.addEventListener("mouseenter", function () { setDetailPasteTarget("photo"); });
+  const ws = document.getElementById("workSec");
+  if (ws) ws.addEventListener("mouseenter", function () { setDetailPasteTarget("work"); });
+  setDetailPasteTarget("photo");
   document.getElementById("btnAddPhoto").addEventListener("click", function () { document.getElementById("photoInput").click(); });
   document.getElementById("photoInput").addEventListener("change", function () { uploadPhotos(L, this.files); this.value = ""; });
   renderFiles(L);
@@ -1383,7 +1390,7 @@ function openDetail(row) {
   typesetWhenReady(document.getElementById("detailBody"));
   document.getElementById("detailOverlay").classList.add("open");
 }
-function closeDetail() { document.getElementById("detailOverlay").classList.remove("open"); }
+function closeDetail() { document.getElementById("detailOverlay").classList.remove("open"); detailLesson = null; }
 document.getElementById("detailClose").addEventListener("click", closeDetail);
 document.getElementById("detailOverlay").addEventListener("click", function (e) { if (e.target === this) closeDetail(); });
 let gradeRow = null;
@@ -1687,6 +1694,7 @@ function workSectionHTML() {
     '<div id="workBody" style="display:none">' +
     '<div class="photogrid" id="workGrid"></div>' +
     '<button class="btn" id="btnAddWorkPhoto" type="button" style="width:100%;justify-content:center;margin-top:10px">📷 Thêm ảnh bài làm - chụp hoặc chọn từ máy</button>' +
+    '<div style="font-size:12.5px;color:var(--muted);margin-top:6px;text-align:center">Trên máy tính: di chuột vào mục Bài làm rồi dán ảnh (Ctrl+V)</div>' +
     '<input type="file" id="workPhotoInput" accept="image/*" multiple hidden>' +
     '<div id="fileList" style="margin-top:14px"></div>' +
     '<button class="btn" id="btnAddFile" type="button" style="width:100%;justify-content:center;margin-top:10px">📎 Thêm file PDF</button>' +
@@ -2857,6 +2865,29 @@ document.getElementById("fPhotoDrop").addEventListener("mouseenter", function ()
 document.getElementById("fPhotoDrop").addEventListener("focus", function () { setPasteTarget("photo"); });
 document.getElementById("fWorkDrop").addEventListener("mouseenter", function () { setPasteTarget("work"); });
 document.getElementById("fWorkDrop").addEventListener("focus", function () { setPasteTarget("work"); });
+let detailLesson = null;
+let detailPasteTarget = "photo";
+function setDetailPasteTarget(t) {
+  detailPasteTarget = t;
+  const ps = document.getElementById("photoSec"), ws = document.getElementById("workSec");
+  if (ps) ps.classList.toggle("paste-target", t === "photo");
+  if (ws) ws.classList.toggle("paste-target", t === "work");
+}
+document.addEventListener("paste", function (e) {
+  const ov = document.getElementById("detailOverlay");
+  if (!ov || !ov.classList.contains("open") || !detailLesson) return;
+  const io = document.getElementById("imgOverlay");
+  if (io && io.classList.contains("open")) return;
+  const t = e.target;
+  if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+  const items = (e.clipboardData && e.clipboardData.items) || [];
+  const imgs = [];
+  for (let i = 0; i < items.length; i++) { if (items[i].type && items[i].type.indexOf("image/") === 0) { const f = items[i].getAsFile(); if (f) imgs.push(f); } }
+  if (!imgs.length) return;
+  e.preventDefault();
+  if (detailPasteTarget === "work" && board === "ex") uploadWorkPhotos(detailLesson, imgs);
+  else uploadPhotos(detailLesson, imgs);
+});
 addOverlay.addEventListener("paste", function (e) {
   if (!addOverlay.classList.contains("open")) return;
   const items = (e.clipboardData && e.clipboardData.items) || [];
