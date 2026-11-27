@@ -365,7 +365,7 @@
   /* Hướng dẫn từng bước cho người mới */
   #tourOverlay{position:fixed; inset:0; z-index:200; display:none; touch-action:none}
   #tourOverlay.open{display:block}
-  #tourSpot{position:absolute; border-radius:14px; border:3px solid #fff; box-shadow:0 0 0 9999px rgba(15,23,42,.62); transition:all .35s ease; pointer-events:none}
+  #tourSpot{position:absolute; border-radius:14px; border:3px solid #fff; box-shadow:0 0 0 2px #2563EB, 0 0 0 9999px rgba(15,23,42,.62); transition:all .35s ease; pointer-events:none}
   #tourTip{position:absolute; width:min(340px, calc(100vw - 32px)); background:#fff; border-radius:18px; padding:16px 18px; box-shadow:0 12px 40px rgba(15,23,42,.35); transition:all .35s ease}
   #tourTip h4{margin:0 0 6px; font-size:16px}
   #tourTip p{margin:0; font-size:14px; line-height:1.55; color:var(--muted)}
@@ -2699,6 +2699,7 @@ const TOUR_STEPS = [
   { sel: null, tab: "today", title: "Xong rồi! 🎉", text: "Bảng riêng của bạn đã sẵn sàng, dữ liệu nằm trong Google Sheet của chính bạn. Bấm + Thêm bài mới để bắt đầu học." }
 ];
 let tourIdx = -1;
+let tourRetry = 0;
 function maybeStartTour() {
   try {
     if (location.search.indexOf("tour=1") >= 0) { startTour(); return; }
@@ -2728,11 +2729,12 @@ function showTourStep() {
   document.getElementById("tourStep").textContent = "Bước " + (tourIdx + 1) + "/" + TOUR_STEPS.length;
   document.getElementById("tourNext").textContent = tourIdx === TOUR_STEPS.length - 1 ? "Bắt đầu học 🎉" : "Tiếp theo →";
   const el = st.sel ? document.querySelector(st.sel) : null;
-  if (el) el.scrollIntoView({ block: "center", behavior: REDUCED ? "auto" : "smooth" });
-  setTimeout(positionTour, el ? 420 : 60);
-  setTimeout(positionTour, 900);
+  tourRetry = 0;
+  if (el) el.scrollIntoView({ block: "center", behavior: "auto" });
+  requestAnimationFrame(function () { requestAnimationFrame(function () { positionTour(false); }); });
+  setTimeout(function () { positionTour(false); }, 650);
 }
-function positionTour() {
+function positionTour(instant) {
   const st = TOUR_STEPS[tourIdx];
   if (!st) return;
   const spot = document.getElementById("tourSpot");
@@ -2748,6 +2750,8 @@ function positionTour() {
   ov.style.background = "";
   tip.style.transform = "";
   const r = el.getBoundingClientRect();
+  if ((r.width === 0 || r.height === 0) && tourRetry < 6) { tourRetry++; setTimeout(function () { positionTour(instant); }, 250); return; }
+  if (instant) { spot.style.transition = "none"; tip.style.transition = "none"; }
   const pad = 6;
   spot.style.display = "";
   spot.style.left = (r.left - pad) + "px";
@@ -2761,12 +2765,19 @@ function positionTour() {
   if (top < 16) top = Math.max(16, window.innerHeight - th - 16);
   tip.style.left = left + "px";
   tip.style.top = top + "px";
+  if (instant) { void spot.offsetWidth; spot.style.transition = ""; tip.style.transition = ""; }
 }
 document.getElementById("tourNext").addEventListener("click", function () {
   tourIdx++;
   if (tourIdx >= TOUR_STEPS.length) endTour(); else showTourStep();
 });
-window.addEventListener("resize", function () { if (tourIdx >= 0) positionTour(); });
+window.addEventListener("resize", function () { if (tourIdx >= 0) positionTour(true); });
+let tourScrollTick = false;
+window.addEventListener("scroll", function () {
+  if (tourIdx < 0 || tourScrollTick) return;
+  tourScrollTick = true;
+  requestAnimationFrame(function () { positionTour(true); tourScrollTick = false; });
+}, { passive: true });
 window.addEventListener("load", function () { if (location.search.indexOf("tour=1") >= 0) setTimeout(startTour, 600); });
 
 /* ===== Đọc Sheet ===== */
