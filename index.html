@@ -1325,6 +1325,7 @@ function openDetail(row) {
     '<div class="reviewbox detail-actions">' +
       '<button class="btn" id="btnEdit" type="button">✏️ Sửa thông tin bài</button>' +
       '<button class="btn primary" id="btnReviewed" type="button">✓ Đã ôn bài này</button>' +
+      '<button class="btn" id="btnDelete" type="button" style="color:var(--red)">🗑 Xoá bài</button>' +
     '</div>' +
     '<div id="editBox" style="display:none;margin-top:14px"><form class="addform" id="editForm">' +
       '<label>' + (board === "ex" ? "Chủ đề (không bắt buộc)" : "Chủ đề *") + '<input id="eTopic" type="text"' + (board === "ex" ? "" : " required") + '></label>' +
@@ -1386,6 +1387,7 @@ function openDetail(row) {
     ta.setSelectionRange(start + 2, start + 2);
   });
   document.getElementById("btnReviewed").addEventListener("click", function () { openGrade(L); });
+  document.getElementById("btnDelete").addEventListener("click", function () { deleteLesson(L.row); });
   document.getElementById("btnEdit").addEventListener("click", function () {
     document.getElementById("eTopic").value = L.topic || "";
     document.getElementById("eDate").value = L.learnedDate || "";
@@ -1411,6 +1413,36 @@ function openDetail(row) {
   document.getElementById("editForm").addEventListener("submit", function (ev) { ev.preventDefault(); submitEdit(L.row); });
   typesetWhenReady(document.getElementById("detailBody"));
   document.getElementById("detailOverlay").classList.add("open");
+}
+async function deleteLesson(row) {
+  const L = lessons.find(function (x) { return x.row === row; });
+  if (!L) return;
+  if (!confirm("Xoá bài \"" + L.topic + "\"? Bài sẽ bị xoá khỏi bảng và không khôi phục được.")) return;
+  let tok = await tokenOrSilent();
+  if (!tok) {
+    try { tok = await signIn(); } catch (e) { showToast("Cần đăng nhập Google trước khi xoá bài."); return; }
+  }
+  const hdr = { Authorization: "Bearer " + tok, "Content-Type": "application/json" };
+  /* Chỉ xoá ô nội dung, KHÔNG đụng cột công thức G/H/O/Q */
+  const cols = ["A", "B", "C", "D", "E", "F", "I", "J", "K", "L", "M", "N", "R", "S", "T", "U"];
+  const data = cols.map(function (c) { return { range: SR_TAB + "!" + c + row, values: [[""]] }; });
+  try {
+    const r = await fetch("https://sheets.googleapis.com/v4/spreadsheets/" + SR_SHEET_ID + "/values:batchUpdate", {
+      method: "POST", headers: hdr,
+      body: JSON.stringify({ valueInputOption: "USER_ENTERED", data: data })
+    });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const ids = (L.images || []).concat(L.workImages || []).concat((L.files || []).map(function (f) { return f.id; }));
+    ids.forEach(function (id) { fetch(DRIVE_API + "/" + id, { method: "DELETE", headers: { Authorization: "Bearer " + tok } }).catch(function () {}); });
+    lessons = lessons.filter(function (x) { return x.row !== row; });
+    saveCache(lessons);
+    closeDetail();
+    renderAll_Tabs(true);
+    showToast("Đã xoá bài ✔");
+    refreshWithToken(tok);
+  } catch (e) {
+    showToast("Không xoá được: " + (e.message || e));
+  }
 }
 function closeDetail() { document.getElementById("detailOverlay").classList.remove("open"); detailLesson = null; }
 document.getElementById("detailClose").addEventListener("click", closeDetail);
@@ -2690,14 +2722,69 @@ async function createUserSheet(tok) {
 }
 
 /* ===== Hướng dẫn từng bước cho người mới (không có nút bỏ qua) ===== */
+const TOUR_SAMPLE = "Bài mẫu: Hàm số bậc hai";
 const TOUR_STEPS = [
   { sel: ".boardswitch", tab: null, title: "👋 Chào bạn! Đây là hai bảng học", text: "Bảng học để ôn bài theo lịch nhớ. Bảng bài tập để luyện lại những câu bạn từng làm sai. Bấm qua lại ở đây." },
-  { sel: '.tabbtn[data-tab="today"]', tab: "today", title: "Tab Hôm nay", text: "Bài nào đến hạn ôn sẽ hiện ở đây, bài trễ nhất xếp lên đầu. Bấm vào một bài, chọn ✓ Đã ôn bài này rồi chấm mức nhớ, web tự hẹn lần ôn sau cho bạn." },
-  { sel: "#btnAdd", tab: "all", title: "Thêm bài mới", text: "Bấm nút này để thêm bài vừa học. Đính kèm được ảnh chụp vở và file PDF ngay lúc thêm." },
+  { sel: '.tabbtn[data-tab="today"]', tab: "today", title: "Tab Hôm nay", text: "Bài nào đến hạn ôn sẽ hiện ở đây, bài trễ nhất xếp lên đầu. Lát nữa mình làm thử luôn một bài mẫu cho quen tay." },
+  { sel: "#btnAdd", tab: "all", wait: "formOpen", title: "Thử thêm một bài mẫu", text: "Bấm nút + Thêm bài mới được khoanh sáng để mở form thêm bài." },
+  { sel: "#fTopic", fill: true, pass: true, title: "Điền thông tin bài", text: "Mình điền sẵn một bài mẫu: tên bài, môn TOÁN, ngày học hôm nay, kèm nơi viết và đáp án mẫu. Khi tự thêm, bạn chỉ cần nhập tên bài và chọn môn, còn lại để trống cũng được. Kéo xuống xem hết form rồi bấm Tiếp theo." },
+  { sel: "#fSubmit", wait: "sampleSaved", title: "Lưu bài mẫu", text: "Bấm nút Lưu được khoanh sáng để tạo bài mẫu vào bảng của bạn." },
+  { selFn: "sampleTile", tab: "all", wait: "detailOpen", title: "Mở bài mẫu", text: "Bài mẫu đã vào danh sách rồi. Bấm vào ô bài mẫu được khoanh sáng để xem chi tiết bài." },
+  { sel: "#btnReviewed", title: "Ôn xong thì chấm mức nhớ", text: "Mỗi lần ôn xong, bấm ✓ Đã ôn bài này rồi chọn mức nhớ từ Rất khó đến Dễ, web tự hẹn ngày ôn tiếp theo. Bài mẫu này mình không ôn, lát xoá luôn." },
+  { sel: "#btnDelete", wait: "sampleDeleted", title: "Xoá bài mẫu", text: "Giờ xoá bài mẫu đi cho sạch bảng. Bấm nút Xoá bài được khoanh sáng, rồi bấm OK khi web hỏi lại." },
   { sel: ".filters", tab: "all", title: "Tìm và lọc bài", text: "Gõ tên bài ở ô tìm kiếm phía trên, hoặc lọc theo môn, trạng thái và mức nhớ ở hàng này." },
   { sel: '.tabbtn[data-tab="notes"]', tab: "notes", title: "Tab Ghi chú", text: "Viết ghi chú nhanh ở đây. Gõ được công thức toán bằng LaTeX, ví dụ $x^2 + 1$ sẽ hiện thành công thức đẹp." },
-  { sel: null, tab: "today", title: "Xong rồi! 🎉", text: "Bảng riêng của bạn đã sẵn sàng, dữ liệu nằm trong Google Sheet của chính bạn. Bấm + Thêm bài mới để bắt đầu học." }
+  { sel: null, tab: "today", title: "Xong rồi! 🎉", text: "Bạn đã tự thêm và xoá một bài mẫu rồi đó. Từ giờ cứ bấm + Thêm bài mới để thêm bài thật. Dữ liệu nằm trong Google Sheet của chính bạn." }
 ];
+let tourWaitTimer = null;
+let tourSampleRow = 0;
+let tourSaving = false;
+let tourClosedTicks = 0;
+function tourSampleLesson() { return lessons.find(function (x) { return x.topic === TOUR_SAMPLE; }); }
+function tourFillSample() {
+  document.getElementById("fTopic").value = TOUR_SAMPLE;
+  document.getElementById("fSubject").value = "TOÁN";
+  document.getElementById("fNotebook").value = "Bài mẫu để làm quen với web, lát mình xoá đi.";
+  document.getElementById("fAnswer").value = "Ví dụ đáp án: đỉnh I(-b/2a; -Δ/4a).";
+}
+const TOUR_SEL = {
+  sampleTile: function () {
+    const L = tourSampleLesson();
+    return L ? 'button.row[onclick="openDetail(' + L.row + ')"]' : "#allRows";
+  }
+};
+const TOUR_WAITERS = {
+  formOpen: function () { return document.getElementById("addOverlay").classList.contains("open"); },
+  sampleSaved: function () {
+    const L = tourSampleLesson();
+    if (L) { tourSampleRow = L.row; return true; }
+    if (!document.getElementById("addOverlay").classList.contains("open")) {
+      tourClosedTicks++;
+      if (tourClosedTicks >= (tourSaving ? 18 : 3)) { tourClosedTicks = 0; tourIdx = 2; showTourStep(); return "jumped"; }
+    } else tourClosedTicks = 0;
+    return false;
+  },
+  detailOpen: function () { return document.getElementById("detailOverlay").classList.contains("open"); },
+  sampleDeleted: function () {
+    if (!tourSampleLesson()) return true;
+    if (!document.getElementById("detailOverlay").classList.contains("open")) { tourIdx = 5; showTourStep(); return "jumped"; }
+    return false;
+  }
+};
+function tourStopWait() { if (tourWaitTimer) { clearInterval(tourWaitTimer); tourWaitTimer = null; } }
+function tourStartWait(key) {
+  tourStopWait();
+  tourSaving = false;
+  tourClosedTicks = 0;
+  const fn = TOUR_WAITERS[key];
+  if (!fn) return;
+  tourWaitTimer = setInterval(function () {
+    const r = fn();
+    if (r === "jumped") { tourStopWait(); return; }
+    if (r) { tourStopWait(); tourIdx++; if (tourIdx >= TOUR_STEPS.length) endTour(); else showTourStep(); }
+  }, 350);
+}
+document.getElementById("addForm").addEventListener("submit", function () { tourSaving = true; });
 let tourIdx = -1;
 let tourRetry = 0;
 function maybeStartTour() {
@@ -2715,6 +2802,7 @@ function startTour() {
   showTourStep();
 }
 function endTour() {
+  tourStopWait();
   document.getElementById("tourOverlay").classList.remove("open");
   tourIdx = -1;
   try { if (currentEmail) localStorage.setItem("sb-tour-" + currentEmail, "done"); } catch (e) {}
@@ -2723,16 +2811,26 @@ function endTour() {
 function showTourStep() {
   const st = TOUR_STEPS[tourIdx];
   if (!st) { endTour(); return; }
+  tourStopWait();
   if (st.tab) switchTab(st.tab);
+  if (st.fill) tourFillSample();
   document.getElementById("tourTitle").textContent = st.title;
   document.getElementById("tourText").textContent = st.text;
-  document.getElementById("tourStep").textContent = "Bước " + (tourIdx + 1) + "/" + TOUR_STEPS.length;
-  document.getElementById("tourNext").textContent = tourIdx === TOUR_STEPS.length - 1 ? "Bắt đầu học 🎉" : "Tiếp theo →";
-  const el = st.sel ? document.querySelector(st.sel) : null;
+  const waitMode = !!st.wait;
+  document.getElementById("tourStep").textContent = "Bước " + (tourIdx + 1) + "/" + TOUR_STEPS.length + (waitMode ? " · 👆 Bấm vào chỗ được khoanh" : "");
+  const nx = document.getElementById("tourNext");
+  nx.style.display = waitMode ? "none" : "";
+  nx.textContent = tourIdx === TOUR_STEPS.length - 1 ? "Bắt đầu học 🎉" : "Tiếp theo →";
+  const ov = document.getElementById("tourOverlay");
+  ov.style.pointerEvents = (waitMode || st.pass) ? "none" : "auto";
+  document.getElementById("tourTip").style.pointerEvents = waitMode ? "none" : "auto";
+  const sel = st.selFn ? TOUR_SEL[st.selFn]() : st.sel;
+  const el = sel ? document.querySelector(sel) : null;
   tourRetry = 0;
   if (el) el.scrollIntoView({ block: "center", behavior: "auto" });
   requestAnimationFrame(function () { requestAnimationFrame(function () { positionTour(false); }); });
   setTimeout(function () { positionTour(false); }, 650);
+  if (waitMode) tourStartWait(st.wait);
 }
 function positionTour(instant) {
   const st = TOUR_STEPS[tourIdx];
@@ -2740,7 +2838,8 @@ function positionTour(instant) {
   const spot = document.getElementById("tourSpot");
   const tip = document.getElementById("tourTip");
   const ov = document.getElementById("tourOverlay");
-  const el = st.sel ? document.querySelector(st.sel) : null;
+  const sel = st.selFn ? TOUR_SEL[st.selFn]() : st.sel;
+  const el = sel ? document.querySelector(sel) : null;
   if (!el) {
     spot.style.display = "none";
     ov.style.background = "rgba(15,23,42,.62)";
@@ -2777,7 +2876,7 @@ window.addEventListener("scroll", function () {
   if (tourIdx < 0 || tourScrollTick) return;
   tourScrollTick = true;
   requestAnimationFrame(function () { positionTour(true); tourScrollTick = false; });
-}, { passive: true });
+}, { passive: true, capture: true });
 window.addEventListener("load", function () { if (location.search.indexOf("tour=1") >= 0) setTimeout(startTour, 600); });
 
 /* ===== Đọc Sheet ===== */
