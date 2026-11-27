@@ -2543,7 +2543,7 @@ try {
           renderAll_Tabs(false);
         }
         if (getToken()) refreshWithToken(getToken());
-        else showNotice("Đã đăng nhập - bấm nút Tải dữ liệu từ Google Sheet ở dưới để tải bảng của bạn về máy này.");
+        else showNotice(lessons.length ? "Đang xem bản đã lưu trên máy này. Bấm nút Cập nhật ở trên để tải dữ liệu mới nhất từ Google Sheet." : "Đã đăng nhập. Bấm nút Cập nhật ở trên để tải bảng của bạn từ Google Sheet về máy này.");
       } else {
         currentEmail = "";
         sheetResolvedFor = "";
