@@ -309,6 +309,10 @@
   .boardswitch{display:flex; gap:4px; width:100%; margin-top:12px; background:#E8EDF5; border-radius:14px; padding:4px}
   .boardswitch .boardbtn{flex:1; min-width:0; justify-content:center; font-weight:700; background:transparent; border:0; border-radius:10px; padding:9px 6px; white-space:nowrap}
   .boardswitch .boardbtn.active{background:#fff; color:var(--ink); box-shadow:0 2px 8px rgba(26,35,50,.13)}
+  .webswitch{display:flex; align-items:center; gap:8px; margin-top:10px; flex-wrap:wrap}
+  .webswitch .wslbl{font-size:12.5px; color:var(--muted); font-weight:600}
+  .webswitch a.wsbtn{display:inline-flex; align-items:center; gap:6px; padding:7px 13px; border-radius:999px; background:#fff; border:1px solid var(--line); color:var(--ink); font-size:13px; font-weight:700; text-decoration:none}
+  .webswitch a.wsbtn:active{transform:scale(.97)}
   body.board-ex .photogrid{display:flex; flex-direction:column; gap:12px}
   body.board-ex .photogrid .ph{aspect-ratio:auto; min-height:110px}
   body.board-ex .photogrid .ph img{width:100%; height:auto; object-fit:contain}
@@ -427,6 +431,7 @@
       <button class="btn boardbtn active" id="boardStudy" type="button">📚 Bảng học</button>
       <button class="btn boardbtn" id="boardEx" type="button">📝 Bảng bài tập</button>
     </div>
+    <div class="webswitch"><span class="wslbl">Chuyển web:</span><a class="wsbtn" href="https://huyloncoivnfgf2.github.io/thuvien-bammay/">🎬 Bấm Máy</a><a class="wsbtn" href="https://hsa-test.onrender.com">🎓 HSA</a></div>
   </header>
 
   <div id="notice" role="status"></div>
