@@ -363,7 +363,12 @@
   .filerow .ftag{flex:none; font-size:11px; font-weight:800; letter-spacing:.04em; padding:3px 8px; border-radius:7px; background:var(--accent-soft); color:var(--accent)}
   .filerow .ftag.xopp{background:var(--orange-soft); color:var(--orange)}
   #fileOverlay .modal{max-width:1180px}
-  #imgOverlay .modal{max-height:94vh; padding:16px}
+  #imgOverlay{align-items:center}
+  #imgOverlay .modal{max-height:94vh; padding:16px; display:flex; flex-direction:column}
+  #imgFrameWrap{flex:1; min-height:0; display:flex; flex-direction:column; justify-content:center}
+  @media(max-width:699px){
+    #imgOverlay .modal{width:100vw; height:100dvh; max-height:100dvh; border-radius:0; padding:12px 10px calc(12px + env(safe-area-inset-bottom))}
+  }
   /* Hướng dẫn từng bước cho người mới */
   #tourOverlay{position:fixed; inset:0; z-index:200; display:none; touch-action:none}
   #tourOverlay.open{display:block}
@@ -564,7 +569,7 @@
 
 <!-- ===== XEM ẢNH LỚN ===== -->
 <div class="overlay" id="imgOverlay" style="z-index:75">
-  <div class="modal modalwrap" role="dialog" aria-modal="true" style="max-width:min(1400px,96vw)">
+  <div class="modal modalwrap" role="dialog" aria-modal="true" style="max-width:min(1400px,100vw)">
     <button class="xbtn" id="imgClose" type="button" aria-label="Đóng">✕</button>
     <h3 id="imgTitle" style="margin:0 36px 10px 0;font-size:16px">Ảnh tài liệu</h3>
     <div id="imgFrameWrap"></div>
@@ -2226,6 +2231,7 @@ async function appendPdfPage(body, fv, i, io) {
 }
 
 let currentImg = null;
+let imgFitFn = null;
 let imgZoom = { s: 1, tx: 0, ty: 0 };
 function applyImgZoom() {
   const img = document.getElementById("imgZoomImg");
@@ -2323,12 +2329,15 @@ function openImg(L, idx, kind) {
     function fitImgFrame() {
       if (!zim || !zwrap || !zim.naturalWidth) return;
       const availW = zwrap.parentElement ? zwrap.parentElement.clientWidth : zwrap.clientWidth;
-      const maxH = Math.min(window.innerHeight * 0.76, 980);
+      let maxH;
+      if (window.innerWidth < 700 && zwrap.parentElement) maxH = Math.max(200, zwrap.parentElement.clientHeight - 56);
+      else maxH = Math.min(window.innerHeight * 0.76, 980);
       const sc = Math.min(availW / zim.naturalWidth, maxH / zim.naturalHeight);
       zwrap.style.width = Math.round(zim.naturalWidth * sc) + "px";
       zwrap.style.height = Math.round(zim.naturalHeight * sc) + "px";
       zwrap.style.margin = "0 auto";
     }
+    imgFitFn = fitImgFrame;
     if (zim && zim.complete && zim.naturalWidth) fitImgFrame();
     else if (zim) zim.addEventListener("load", fitImgFrame);
     dl.href = u;
@@ -2345,6 +2354,7 @@ function closeImg() {
   document.getElementById("imgOverlay").classList.remove("open");
   document.getElementById("imgFrameWrap").innerHTML = "";
   currentImg = null;
+  imgFitFn = null;
 }
 async function deleteCurrentImg() {
   if (!currentImg) return;
@@ -2881,7 +2891,7 @@ document.getElementById("tourNext").addEventListener("click", function () {
   tourIdx++;
   if (tourIdx >= TOUR_STEPS.length) endTour(); else showTourStep();
 });
-window.addEventListener("resize", function () { if (tourIdx >= 0) positionTour(true); });
+window.addEventListener("resize", function () { if (tourIdx >= 0) positionTour(true); if (imgFitFn) { imgFitFn(); clampImgZoom(); applyImgZoom(); } });
 let tourScrollTick = false;
 window.addEventListener("scroll", function () {
   if (tourIdx < 0 || tourScrollTick) return;
