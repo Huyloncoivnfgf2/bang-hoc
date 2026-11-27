@@ -320,7 +320,9 @@
   body .gaccord .rows, body .gmain > .grouphead + .rows, body .grow2, body #allRows{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px}
   body .rows.collapsed{display:none}
   @media(min-width:1024px){body .gaccord .rows, body .gmain > .grouphead + .rows, body .grow2, body #allRows{grid-template-columns:repeat(5,minmax(0,1fr))}}
-  body .row{flex-direction:column; flex-wrap:nowrap; align-items:center; text-align:center; padding:10px 8px 8px; gap:4px; row-gap:4px; border-radius:14px}
+  body .row{position:relative; flex-direction:column; flex-wrap:nowrap; align-items:center; text-align:center; padding:10px 8px 8px; gap:4px; row-gap:4px; border-radius:14px}
+  .rowdel{position:absolute; top:6px; right:6px; width:28px; height:28px; display:flex; align-items:center; justify-content:center; font-size:13px; border-radius:50%; background:rgba(220,38,38,.08); color:var(--red); cursor:pointer; z-index:2}
+  .rowdel:hover{background:rgba(220,38,38,.18)}
   body .rownum{display:flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:50%; font-size:14px; font-weight:800; flex:none}
   body .row-main{flex:none; width:100%}
   body .row-topic{display:block; -webkit-line-clamp:unset; overflow:visible; overflow-wrap:break-word; font-size:13px; line-height:1.3; text-align:center}
@@ -849,6 +851,7 @@ function rowHTML(L, i) {
   const num = typeof i === "number" ? i + 1 : "";
   return '<button class="row fade-up" type="button" style="--i:' + Math.min(i || 0, 12) + '" onclick="openDetail(' + L.row + ')">' +
     '<span class="rownum" style="background:' + s.bg + ';color:' + s.fg + '">' + num + '</span>' +
+    '<span class="rowdel" title="Xoá bài" onclick="event.stopPropagation();deleteLesson(' + L.row + ')">🗑</span>' +
     '<span class="row-main">' +
       '<span class="row-topic">' + esc(L.topic) + '</span>' +
       '<span class="row-sub">' +
@@ -1396,7 +1399,7 @@ function openDetail(row) {
 async function deleteLesson(row) {
   const L = lessons.find(function (x) { return x.row === row; });
   if (!L) return;
-  if (!confirm("Xoá bài \"" + L.topic + "\"? Bài sẽ bị xoá khỏi bảng và không khôi phục được.")) return;
+  if (!confirm("Bạn muốn xoá bài \"" + L.topic + "\" chứ? Bài sẽ bị xoá khỏi bảng và không khôi phục được.")) return;
   let tok = await tokenOrSilent();
   if (!tok) {
     try { tok = await signIn(); } catch (e) { showToast("Cần đăng nhập Google trước khi xoá bài."); return; }
