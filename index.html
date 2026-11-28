@@ -2389,6 +2389,8 @@ function openImg(L, idx, kind) {
       zwrap.style.width = Math.round(zim.naturalWidth * sc) + "px";
       zwrap.style.height = Math.round(zim.naturalHeight * sc) + "px";
       zwrap.style.margin = "0 auto";
+      zim.style.width = "100%";
+      zim.style.height = "100%";
       zim.style.maxHeight = "100%";
     }
     imgFitFn = fitImgFrame;
