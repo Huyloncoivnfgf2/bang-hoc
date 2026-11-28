@@ -2320,8 +2320,8 @@ function openImg(L, idx, kind) {
   document.getElementById("imgOverlay").classList.add("open");
   fetchImgObjectUrl(id).then(function (u) {
     if (!currentImg || currentImg.id !== id) return;
-    wrap.innerHTML = '<div id="imgZoomWrap" style="position:relative;overflow:hidden;border-radius:12px;background:#0B1220;touch-action:none;height:min(76vh,980px);display:flex;align-items:center;justify-content:center">' +
-      '<img id="imgZoomImg" src="' + u + '" alt="Ảnh tài liệu" draggable="false" style="max-width:100%;max-height:100%;display:block;user-select:none;-webkit-user-drag:none;will-change:transform">' +
+    wrap.innerHTML = '<div id="imgZoomWrap" style="position:relative;overflow:hidden;border-radius:12px;background:#0B1220;touch-action:none;width:fit-content;max-width:100%;margin:0 auto;display:flex;align-items:center;justify-content:center">' +
+      '<img id="imgZoomImg" src="' + u + '" alt="Ảnh tài liệu" draggable="false" style="max-width:100%;max-height:min(76vh,980px);display:block;user-select:none;-webkit-user-drag:none;will-change:transform">' +
       '</div>' +
       '<div style="display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap">' +
       '<button class="btn small" id="imgZoomOut" type="button">−</button>' +
@@ -2341,10 +2341,16 @@ function openImg(L, idx, kind) {
       zwrap.style.width = Math.round(zim.naturalWidth * sc) + "px";
       zwrap.style.height = Math.round(zim.naturalHeight * sc) + "px";
       zwrap.style.margin = "0 auto";
+      zim.style.maxHeight = "100%";
     }
     imgFitFn = fitImgFrame;
-    if (zim && zim.complete && zim.naturalWidth) fitImgFrame();
-    else if (zim) zim.addEventListener("load", fitImgFrame);
+    fitImgFrame();
+    if (zim) {
+      zim.addEventListener("load", fitImgFrame);
+      if (zim.decode) zim.decode().then(fitImgFrame).catch(function () {});
+      requestAnimationFrame(fitImgFrame);
+      setTimeout(fitImgFrame, 120);
+    }
     dl.href = u;
     dl.setAttribute("download", L.topic + ".jpg");
   }).catch(function () {
