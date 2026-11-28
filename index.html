@@ -367,12 +367,14 @@
   .filerow .ftag{flex:none; font-size:11px; font-weight:800; letter-spacing:.04em; padding:3px 8px; border-radius:7px; background:var(--accent-soft); color:var(--accent)}
   .filerow .ftag.xopp{background:var(--orange-soft); color:var(--orange)}
   #fileOverlay .modal{max-width:1180px}
-  #imgOverlay{align-items:center}
-  #imgOverlay .modal{max-height:94vh; padding:16px; display:flex; flex-direction:column}
+  #imgOverlay{align-items:center; background:rgba(4,6,12,.93)}
+  #imgOverlay .modal{background:transparent; box-shadow:none; width:100vw; height:100dvh; max-height:100dvh; border-radius:0; padding:14px 16px calc(14px + env(safe-area-inset-bottom)); display:flex; flex-direction:column; overflow:hidden}
+  #imgOverlay #imgTitle{color:#E8EEFB; font-size:14.5px; font-weight:600}
+  #imgOverlay .xbtn{background:rgba(255,255,255,.12); border-color:rgba(255,255,255,.25); color:#fff; z-index:2}
   #imgFrameWrap{flex:1; min-height:0; display:flex; flex-direction:column; justify-content:center}
-  @media(max-width:699px){
-    #imgOverlay .modal{width:100vw; height:100dvh; max-height:100dvh; border-radius:0; padding:12px 10px calc(12px + env(safe-area-inset-bottom))}
-  }
+  #imgOverlay .btn{background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.28); color:#fff}
+  #imgOverlay .btn:active{background:rgba(255,255,255,.22)}
+  #imgOverlay .btn.primary{background:var(--accent); border-color:transparent}
   /* Hướng dẫn từng bước cho người mới */
   #tourOverlay{position:fixed; inset:0; z-index:200; display:none; touch-action:none}
   #tourOverlay.open{display:block}
@@ -574,13 +576,13 @@
 
 <!-- ===== XEM ẢNH LỚN ===== -->
 <div class="overlay" id="imgOverlay" style="z-index:75">
-  <div class="modal modalwrap" role="dialog" aria-modal="true" style="max-width:min(1400px,100vw)">
+  <div class="modal modalwrap" role="dialog" aria-modal="true">
     <button class="xbtn" id="imgClose" type="button" aria-label="Đóng">✕</button>
     <h3 id="imgTitle" style="margin:0 36px 10px 0;font-size:16px">Ảnh tài liệu</h3>
     <div id="imgFrameWrap"></div>
     <div style="display:flex;gap:8px;margin-top:12px">
       <a class="btn" id="imgDownload" href="#" target="_blank" rel="noopener" style="flex:1;justify-content:center;text-decoration:none">⬇️ Tải xuống</a>
-      <button class="btn" id="imgDelete" type="button" style="flex:1;justify-content:center;color:var(--red)">🗑 Xoá ảnh này</button>
+      <button class="btn" id="imgDelete" type="button" style="flex:1;justify-content:center;color:#FCA5A5">🗑 Xoá ảnh này</button>
     </div>
   </div>
 </div>
@@ -2314,29 +2316,28 @@ function openImg(L, idx, kind) {
   currentImg = { lesson: L, id: id, kind: kind || "doc" };
   document.getElementById("imgTitle").textContent = (kind === "work" ? "Ảnh bài làm " : "Ảnh ") + (idx + 1) + "/" + list.length + " - " + L.topic;
   const wrap = document.getElementById("imgFrameWrap");
-  wrap.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px 0">⏳ Đang tải ảnh…</div>';
+  wrap.innerHTML = '<div style="text-align:center;color:#C7D2E4;padding:40px 0">⏳ Đang tải ảnh…</div>';
   const dl = document.getElementById("imgDownload");
   dl.removeAttribute("href");
   document.getElementById("imgOverlay").classList.add("open");
   fetchImgObjectUrl(id).then(function (u) {
     if (!currentImg || currentImg.id !== id) return;
-    wrap.innerHTML = '<div id="imgZoomWrap" style="position:relative;overflow:hidden;border-radius:12px;background:#0B1220;touch-action:none;width:fit-content;max-width:100%;margin:0 auto;display:flex;align-items:center;justify-content:center">' +
-      '<img id="imgZoomImg" src="' + u + '" alt="Ảnh tài liệu" draggable="false" style="max-width:100%;max-height:min(76vh,980px);display:block;user-select:none;-webkit-user-drag:none;will-change:transform">' +
+    wrap.innerHTML = '<div id="imgZoomWrap" style="position:relative;overflow:hidden;border-radius:6px;background:transparent;touch-action:none;width:fit-content;max-width:100%;margin:0 auto;display:flex;align-items:center;justify-content:center">' +
+      '<img id="imgZoomImg" src="' + u + '" alt="Ảnh tài liệu" draggable="false" style="max-width:100%;max-height:min(84vh,1400px);display:block;user-select:none;-webkit-user-drag:none;will-change:transform">' +
       '</div>' +
       '<div style="display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap">' +
       '<button class="btn small" id="imgZoomOut" type="button">−</button>' +
       '<button class="btn small" id="imgZoomIn" type="button">＋</button>' +
       '<button class="btn small" id="imgZoomReset" type="button">Vừa khung</button>' +
-      '<span style="color:var(--muted);font-size:12.5px">Chụm 2 ngón để phóng to, kéo để xem, chạm 2 lần để về vừa khung</span></div>';
+      '<span style="color:rgba(255,255,255,.65);font-size:12.5px">Chụm 2 ngón để phóng to, kéo để xem, chạm 2 lần để về vừa khung</span></div>';
     wireImgZoom();
+    wrap.onclick = function (e) { if (e.target === wrap) closeImg(); };
     const zim = document.getElementById("imgZoomImg");
     const zwrap = document.getElementById("imgZoomWrap");
     function fitImgFrame() {
       if (!zim || !zwrap || !zim.naturalWidth) return;
       const availW = zwrap.parentElement ? zwrap.parentElement.clientWidth : zwrap.clientWidth;
-      let maxH;
-      if (window.innerWidth < 700 && zwrap.parentElement) maxH = Math.max(200, zwrap.parentElement.clientHeight - 56);
-      else maxH = Math.min(window.innerHeight * 0.76, 980);
+      const maxH = zwrap.parentElement ? Math.max(160, zwrap.parentElement.clientHeight - 54) : Math.min(window.innerHeight * 0.84, 1400);
       const sc = Math.min(availW / zim.naturalWidth, maxH / zim.naturalHeight);
       zwrap.style.width = Math.round(zim.naturalWidth * sc) + "px";
       zwrap.style.height = Math.round(zim.naturalHeight * sc) + "px";
@@ -2355,7 +2356,7 @@ function openImg(L, idx, kind) {
     dl.setAttribute("download", L.topic + ".jpg");
   }).catch(function () {
     if (!currentImg || currentImg.id !== id) return;
-    wrap.innerHTML = '<div style="text-align:center;padding:34px 10px"><div style="font-size:15px;margin-bottom:12px">Web cần đăng nhập Google để tải ảnh này.</div><button class="btn primary" id="imgSignIn" type="button" style="justify-content:center">Đăng nhập Google</button></div>';
+    wrap.innerHTML = '<div style="text-align:center;padding:34px 10px"><div style="font-size:15px;margin-bottom:12px;color:#E8EEFB">Web cần đăng nhập Google để tải ảnh này.</div><button class="btn primary" id="imgSignIn" type="button" style="justify-content:center">Đăng nhập Google</button></div>';
     document.getElementById("imgSignIn").addEventListener("click", async function () {
       try { await signIn(); openImg(L, idx, kind); } catch (e) { showToast("Đăng nhập chưa thành công."); }
     });
