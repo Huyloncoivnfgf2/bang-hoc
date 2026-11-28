@@ -277,6 +277,8 @@
   .ntbtn:hover{border-color:var(--accent)}
   .ntcolor{width:26px; height:26px; border-radius:50%; border:2px solid #fff; box-shadow:0 0 0 1px var(--line); cursor:pointer; padding:0}
   .ntsep{width:1px; height:22px; background:var(--line); margin:0 3px}
+  #selToolbar{position:fixed; z-index:300; display:none; background:#fff; border:1px solid var(--line); border-radius:12px; box-shadow:0 8px 28px rgba(26,35,50,.22); padding:6px; margin:0; max-width:calc(100vw - 16px)}
+  #selToolbar.show{display:flex}
   .notetext.rich{min-height:104px; white-space:pre-wrap}
   .notetext.rich:empty:before{content:attr(data-placeholder); color:var(--muted); pointer-events:none}
   .note-text.rich{white-space:normal}
@@ -1717,6 +1719,8 @@ function applyFontSize(editor, px) {
   editor.querySelectorAll("font[size='7']").forEach(function (f) {
     const sp = document.createElement("span");
     sp.style.fontSize = px + "px";
+    const col = f.getAttribute("color") || (f.style && f.style.color) || "";
+    if (col) sp.style.color = col;
     sp.innerHTML = f.innerHTML;
     f.replaceWith(sp);
   });
@@ -1733,6 +1737,41 @@ document.addEventListener("mousedown", function (e) {
   else if (btn.hasAttribute("data-color")) document.execCommand("foreColor", false, btn.getAttribute("data-color"));
   else if (btn.hasAttribute("data-size")) applyFontSize(editor, +btn.getAttribute("data-size"));
 });
+/* Thanh định dạng nổi: bôi đen chữ trong ô ghi chú là hiện ngay cạnh vùng chọn */
+const selBar = document.createElement("div");
+selBar.id = "selToolbar";
+selBar.className = "ntoolbar";
+selBar.innerHTML = noteToolbarHTML();
+document.body.appendChild(selBar);
+let selBarRaf = 0;
+function hideSelBar() { selBar.classList.remove("show"); }
+function updateSelBar() {
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed || !sel.rangeCount) { hideSelBar(); return; }
+  const node = sel.anchorNode;
+  const el = node && node.nodeType === 1 ? node : (node ? node.parentElement : null);
+  const editor = el && el.closest ? el.closest(".notetext.rich") : null;
+  if (!editor || !editor.contains(sel.focusNode)) { hideSelBar(); return; }
+  const rect = sel.getRangeAt(0).getBoundingClientRect();
+  if (!rect || (rect.width === 0 && rect.height === 0)) { hideSelBar(); return; }
+  selBar.setAttribute("data-for", editor.id);
+  selBar.classList.add("show");
+  const bw = selBar.offsetWidth, bh = selBar.offsetHeight;
+  let left = rect.left + rect.width / 2 - bw / 2;
+  left = Math.max(8, Math.min(left, window.innerWidth - bw - 8));
+  let top = rect.top - bh - 8;
+  if (top < 8) top = rect.bottom + 8;
+  selBar.style.left = left + "px";
+  selBar.style.top = top + "px";
+}
+function scheduleSelBar() {
+  if (selBarRaf) return;
+  selBarRaf = requestAnimationFrame(function () { selBarRaf = 0; updateSelBar(); });
+}
+document.addEventListener("selectionchange", scheduleSelBar);
+document.addEventListener("scroll", scheduleSelBar, true);
+window.addEventListener("resize", hideSelBar);
+document.addEventListener("keydown", function (e) { if (e.key === "Escape") hideSelBar(); });
 function noteDisplayHtml(raw) {
   let h = sanitizeNoteHtml(raw);
   h = h.replace(/<table/g, '<div class="tablewrap"><table').replace(/<\/table>/g, '</table></div>');
