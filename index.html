@@ -233,6 +233,33 @@
   .gradeopt b{display:block; font-size:16px}
   .gradeopt .ghint{display:block; color:#5B6B82; font-size:13px; line-height:1.45; margin-top:1px}
 
+  /* Việc cần làm */
+  .taskrow{display:flex; gap:10px; align-items:flex-start; padding:10px 4px; border-bottom:1px solid var(--line)}
+  .taskrow.tasksub{margin-left:34px}
+  .taskcheck{flex:none; width:24px; height:24px; border-radius:50%; border:2px solid #9AA7BD; background:#fff; color:#fff; font-size:13px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; margin-top:1px; padding:0}
+  .taskcheck.on{background:var(--accent); border-color:var(--accent)}
+  .taskmain{flex:1; min-width:0}
+  .tasktitle{font-weight:600; cursor:pointer; overflow-wrap:anywhere}
+  .taskdone .tasktitle{text-decoration:line-through; color:var(--muted)}
+  .taskmeta{display:flex; gap:8px; flex-wrap:wrap; margin-top:3px; font-size:12.5px; color:var(--muted); align-items:center}
+  .tasklistchip{background:#E8EDF5; border-radius:999px; padding:1px 8px; font-weight:600}
+  .taskdate{border-radius:999px; padding:1px 8px; font-weight:600; background:#E8EDF5}
+  .taskdate.over{background:#FDE3E3; color:#B42318}
+  .taskdate.today{background:#FDEBD3; color:#9A5B00}
+  .taskdate.soon{background:#E0EBFF; color:#175CD3}
+  .taskstar{flex:none; border:0; background:transparent; font-size:20px; line-height:1; color:#9AA7BD; cursor:pointer; padding:2px 4px}
+  .taskstar.on{color:#F5A623}
+  .taskdetail{margin-top:10px; display:flex; flex-direction:column; gap:8px}
+  .taskin{width:100%; font:inherit; padding:9px 11px; border:1px solid var(--line); border-radius:12px; background:#fff; box-sizing:border-box}
+  .taskdaterow{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+  .taskdatein{width:150px}
+  .taskbtns{display:flex; gap:8px; flex-wrap:wrap}
+  .tasksubadd{display:flex; gap:8px}
+  .taskgroup{font-weight:700; margin:14px 0 2px; color:var(--ink)}
+  .taskgroup span{color:var(--muted); font-weight:600; font-size:12.5px}
+  .taskdonehead{border:0; background:transparent; font:inherit; font-weight:700; color:var(--muted); cursor:pointer; padding:10px 4px 2px}
+  .chipcnt{background:rgba(255,255,255,.35); border-radius:999px; padding:0 6px; font-size:11.5px}
+  .btn.danger{color:#B42318}
   /* Ghi chú */
   .notetext{width:100%; font:inherit; padding:11px 13px; border-radius:13px; border:1px solid var(--line); background:#fff; outline:none; resize:vertical; line-height:1.55}
   .notetext:focus{border-color:var(--accent); box-shadow:var(--ring)}
@@ -455,6 +482,10 @@
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
       Ghi chú
     </button>
+    <button class="tabbtn" data-tab="tasks" type="button">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.2 2.4 2.4 4.6-5"/></svg>
+      Việc cần làm <span class="cnt" id="tasksCnt" style="display:none">0</span>
+    </button>
   </nav>
 
   <!-- ===== TAB HÔM NAY ===== -->
@@ -547,6 +578,29 @@
     </div>
     <div style="display:flex;align-items:center;gap:8px;margin-top:14px;flex-wrap:wrap"><span style="font-size:13px;color:var(--muted);font-weight:600;flex:none">Lọc theo môn:</span><div class="chips" id="noteFilterChips" style="flex:1;min-width:230px;width:auto"></div></div>
     <div id="notesList" style="display:flex;flex-direction:column;gap:10px;margin-top:10px"></div>
+  </section>
+
+  <!-- ===== TAB VIỆC CẦN LÀM ===== -->
+  <section class="tabpane" id="pane-tasks">
+    <div class="card">
+      <h3>✅ Việc cần làm</h3>
+      <p style="color:var(--muted);font-size:13.5px;margin:0 0 10px">Việc cần làm lưu vào tab <b>Việc cần làm</b> trong Google Sheet của bạn nên không sợ mất, mở Sheet cũng thấy.</p>
+      <div class="chips" id="taskListChips" style="margin-bottom:10px"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input class="taskin" id="taskAddInput" style="flex:1;min-width:200px" placeholder="Thêm việc cần làm… rồi Enter" autocomplete="off">
+        <button class="btn primary small" id="taskAddBtn" type="button">+ Thêm việc</button>
+        <select id="taskSortSel" aria-label="Sắp xếp việc" class="taskin" style="width:auto">
+          <option value="order">Thứ tự của tôi</option>
+          <option value="date">Ngày</option>
+          <option value="star">Có gắn sao</option>
+          <option value="title">Tiêu đề</option>
+        </select>
+      </div>
+      <div id="taskAddInfo" style="font-size:13.5px;margin-top:8px"></div>
+      <div id="taskListOpts" style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap"></div>
+      <div id="tasksList" style="margin-top:6px"></div>
+      <div id="tasksDoneBox"></div>
+    </div>
   </section>
 </div>
 
@@ -2549,6 +2603,416 @@ document.getElementById("noteForm").addEventListener("submit", async function (e
 });
 
 /* ===== Tabs ===== */
+/* ===== Việc cần làm - lưu ở tab "Việc cần làm" trong Sheet (kiểu Google Tasks) ===== */
+const TASKS_TAB = "Việc cần làm";
+const TASK_HEADERS = ["ID", "Danh sách", "Việc cần làm", "Chi tiết", "Ngày", "Sao", "Đã xong", "Việc cha", "Thứ tự", "Ngày tạo"];
+const DEFAULT_TASK_LIST = "Việc cần làm của tôi";
+let tasks = [];
+let tasksLoaded = false;
+let taskLists = [];
+let taskView = "__ALL__";
+let taskSort = "order";
+let expandedTaskId = null;
+let tasksDoneOpen = false;
+try { taskSort = localStorage.getItem("sb-task-sort") || "order"; } catch (e) {}
+function saveTasksCache() { try { localStorage.setItem(userKey("sb-tasks-v1"), JSON.stringify({ at: Date.now(), tasks: tasks, lists: taskLists })); } catch (e) {} }
+function loadTasksCache() {
+  try {
+    let c = JSON.parse(localStorage.getItem(userKey("sb-tasks-v1")) || "null");
+    if (!c && currentEmail === OWNER_EMAIL_SR) c = JSON.parse(localStorage.getItem("sb-tasks-v1") || "null");
+    if (c) { tasks = c.tasks || []; taskLists = c.lists || []; tasksLoaded = true; }
+  } catch (e) {}
+}
+function newTaskId() { return "t" + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36); }
+function allTaskLists() {
+  const seen = {}; const out = [];
+  function add(n) { n = (n || "").trim(); if (n && !seen[n]) { seen[n] = 1; out.push(n); } }
+  add(DEFAULT_TASK_LIST);
+  taskLists.forEach(add);
+  tasks.forEach(function (t) { add(t.list); });
+  return out;
+}
+function addTargetList() { return (taskView !== "__ALL__" && taskView !== "__STAR__") ? taskView : DEFAULT_TASK_LIST; }
+function taskById(id) { for (let i = 0; i < tasks.length; i++) if (tasks[i].id === id) return tasks[i]; return null; }
+function subtasksOf(id) { return tasks.filter(function (t) { return t.parent === id; }).sort(taskCmp); }
+function taskDateInfo(t) {
+  const d = parseDMY(t.date); if (!d) return null;
+  const diff = Math.round((d - todayStart()) / 86400000);
+  if (diff < 0) return { text: "Quá hạn " + (-diff) + " ngày · " + t.date, cls: "over" };
+  if (diff === 0) return { text: "Hôm nay", cls: "today" };
+  if (diff === 1) return { text: "Ngày mai", cls: "soon" };
+  return { text: t.date, cls: "later" };
+}
+function taskCmp(a, b) {
+  if (taskSort === "title") return String(a.title).localeCompare(String(b.title), "vi");
+  if (taskSort === "star") { const d = (b.star ? 1 : 0) - (a.star ? 1 : 0); if (d) return d; }
+  if (taskSort === "date") {
+    const da = parseDMY(a.date), db = parseDMY(b.date);
+    if (da && db) { const d = da - db; if (d) return d; }
+    else if (da) return -1; else if (db) return 1;
+  }
+  const o = (a.order || 0) - (b.order || 0);
+  return o || (a.row - b.row);
+}
+async function fetchTasks(token) {
+  const r = await fetch(SHEETS_API + encodeURIComponent(TASKS_TAB + "!A2:J500"), { headers: { Authorization: "Bearer " + token } });
+  if (!r.ok) { const e = new Error("HTTP " + r.status); e.status = r.status; throw e; }
+  const j = await r.json();
+  const out = [];
+  (j.values || []).forEach(function (row, i) {
+    const id = row[0] == null ? "" : String(row[0]).trim();
+    const title = row[2] == null ? "" : String(row[2]);
+    if (!id || !title.trim()) return;
+    out.push({
+      row: i + 2, id: id,
+      list: (row[1] == null ? "" : String(row[1]).trim()) || DEFAULT_TASK_LIST,
+      title: title,
+      desc: row[3] == null ? "" : String(row[3]),
+      date: row[4] == null ? "" : String(row[4]).trim(),
+      star: String(row[5] || "").trim() === "1",
+      done: String(row[6] || "").trim() === "1",
+      parent: row[7] == null ? "" : String(row[7]).trim(),
+      order: parseFloat(row[8]) || 0,
+      created: row[9] == null ? "" : String(row[9])
+    });
+  });
+  const ids = {}; out.forEach(function (t) { ids[t.id] = 1; });
+  out.forEach(function (t) { if (t.parent && !ids[t.parent]) t.parent = ""; });
+  return out;
+}
+async function ensureTasksTab(token) {
+  const hdr = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
+  const r = await fetch("https://sheets.googleapis.com/v4/spreadsheets/" + SR_SHEET_ID + ":batchUpdate", {
+    method: "POST", headers: hdr,
+    body: JSON.stringify({ requests: [{ addSheet: { properties: { title: TASKS_TAB, gridProperties: { frozenRowCount: 1 } } } }] })
+  });
+  if (!r.ok) throw new Error("HTTP " + r.status + " khi tạo tab Việc cần làm");
+  await writeNoteCells(token, [{ range: TASKS_TAB + "!A1:J1", values: [TASK_HEADERS] }]);
+}
+async function loadTasks(force) {
+  if (tasksLoaded && !force) { renderTasks(); return; }
+  const tok = getToken();
+  if (!tok) { renderTasks(); return; }
+  try {
+    try { tasks = await fetchTasks(tok); }
+    catch (e) {
+      if (e.status === 400) { await ensureTasksTab(tok); tasks = []; }
+      else throw e;
+    }
+    tasksLoaded = true;
+    saveTasksCache();
+  } catch (e) { showNotice("Không tải được việc cần làm (" + (e.message || e) + ")."); }
+  renderTasks();
+}
+async function tasksToken() {
+  let tok = await tokenOrSilent();
+  if (!tok) { try { tok = await signIn(); } catch (e) { tok = null; } }
+  return tok;
+}
+function taskRowValues(t) {
+  return [[t.id, t.list, t.title, t.desc || "", t.date || "", t.star ? 1 : "", t.done ? 1 : "", t.parent || "", t.order || 0, t.created || ""]];
+}
+async function firstEmptyTaskRow(token) {
+  const r = await fetch(SHEETS_API + encodeURIComponent(TASKS_TAB + "!A2:A500"), { headers: { Authorization: "Bearer " + token } });
+  if (!r.ok) throw new Error("HTTP " + r.status + " khi tìm dòng trống");
+  const j = await r.json(); const vals = j.values || [];
+  for (let i = 0; i < 499; i++) {
+    const v = i < vals.length && vals[i] ? vals[i][0] : "";
+    if (!v || !String(v).trim()) return i + 2;
+  }
+  throw new Error("Tab Việc cần làm đã đầy 500 dòng.");
+}
+function maxTaskOrder() { let m = 0; tasks.forEach(function (t) { if ((t.order || 0) > m) m = t.order; }); return m; }
+async function addTask(title, listName, parentId) {
+  title = (title || "").trim(); if (!title) return;
+  const tok = await tasksToken();
+  if (!tok) { showNotice("Cần đăng nhập Google trước khi thêm việc."); return; }
+  try {
+    const row = await firstEmptyTaskRow(tok);
+    const t = { row: row, id: newTaskId(), list: listName || DEFAULT_TASK_LIST, title: title, desc: "", date: "", star: false, done: false, parent: parentId || "", order: maxTaskOrder() + 1, created: todayDMYVN() };
+    await writeNoteCells(tok, [{ range: TASKS_TAB + "!A" + row + ":J" + row, values: taskRowValues(t) }]);
+    tasks.push(t);
+    saveTasksCache(); renderTasks();
+    showToast("Đã thêm việc.");
+  } catch (e) { showNotice("Không thêm được việc (" + (e.message || e) + ")."); loadTasks(true); }
+}
+function harvestTaskDetails(t) {
+  const ti = document.getElementById("tdTitle-" + t.id);
+  if (!ti) return null;
+  const de = document.getElementById("tdDesc-" + t.id);
+  const da = document.getElementById("tdDate-" + t.id);
+  const nt = ti.value.trim(); if (nt) t.title = nt;
+  t.desc = de ? de.value : t.desc;
+  const nd = da ? normDMY(da.value) : "";
+  t.date = validDMY(nd) ? nd : "";
+  return [
+    { range: TASKS_TAB + "!C" + t.row, values: [[t.title]] },
+    { range: TASKS_TAB + "!D" + t.row, values: [[t.desc]] },
+    { range: TASKS_TAB + "!E" + t.row, values: [[t.date]] }
+  ];
+}
+async function toggleTaskDone(id) {
+  const t = taskById(id); if (!t) return;
+  const tok = await tasksToken(); if (!tok) { showNotice("Cần đăng nhập Google trước."); return; }
+  const data = harvestTaskDetails(t) || [];
+  t.done = !t.done;
+  data.push({ range: TASKS_TAB + "!G" + t.row, values: [[t.done ? 1 : ""]] });
+  saveTasksCache(); renderTasks();
+  try { await writeNoteCells(tok, data); } catch (e) { showNotice("Không lưu được (" + (e.message || e) + ")."); loadTasks(true); }
+}
+async function toggleTaskStar(id) {
+  const t = taskById(id); if (!t) return;
+  const tok = await tasksToken(); if (!tok) { showNotice("Cần đăng nhập Google trước."); return; }
+  const data = harvestTaskDetails(t) || [];
+  t.star = !t.star;
+  data.push({ range: TASKS_TAB + "!F" + t.row, values: [[t.star ? 1 : ""]] });
+  saveTasksCache(); renderTasks();
+  try { await writeNoteCells(tok, data); } catch (e) { showNotice("Không lưu được (" + (e.message || e) + ")."); loadTasks(true); }
+}
+async function saveTaskDetails(id) {
+  const t = taskById(id); if (!t) return;
+  const data = harvestTaskDetails(t); if (!data) return;
+  const tok = await tasksToken(); if (!tok) { showNotice("Cần đăng nhập Google trước."); return; }
+  saveTasksCache(); renderTasks();
+  try { await writeNoteCells(tok, data); showToast("Đã lưu chi tiết việc."); }
+  catch (e) { showNotice("Không lưu được (" + (e.message || e) + ")."); loadTasks(true); }
+}
+async function deleteTask(id) {
+  const t = taskById(id); if (!t) return;
+  const subs = subtasksOf(id);
+  const msg = subs.length ? 'Xoá việc "' + t.title + '" và ' + subs.length + ' việc phụ của nó?' : 'Xoá việc "' + t.title + '"?';
+  if (!confirm(msg)) return;
+  const tok = await tasksToken(); if (!tok) { showNotice("Cần đăng nhập Google trước."); return; }
+  const all = [t].concat(subs);
+  const data = all.map(function (x) { return { range: TASKS_TAB + "!A" + x.row + ":J" + x.row, values: [["", "", "", "", "", "", "", "", "", ""]] }; });
+  const drop = {}; all.forEach(function (x) { drop[x.id] = 1; });
+  tasks = tasks.filter(function (x) { return !drop[x.id]; });
+  if (expandedTaskId === id) expandedTaskId = null;
+  saveTasksCache(); renderTasks();
+  try { await writeNoteCells(tok, data); showToast("Đã xoá việc."); }
+  catch (e) { showNotice("Không xoá được (" + (e.message || e) + ")."); loadTasks(true); }
+}
+async function moveTask(id, dir) {
+  const t = taskById(id); if (!t) return;
+  const sibs = tasks.filter(function (x) { return x.parent === t.parent && x.list === t.list && x.done === t.done; }).sort(function (a, b) { return (a.order || 0) - (b.order || 0) || a.row - b.row; });
+  const i = sibs.indexOf(t); const j = i + dir;
+  if (i < 0 || j < 0 || j >= sibs.length) return;
+  const o = sibs[j];
+  const tmp = t.order; t.order = o.order; o.order = tmp;
+  if (t.order === o.order) t.order = o.order + (dir < 0 ? -0.5 : 0.5);
+  const tok = await tasksToken(); if (!tok) { showNotice("Cần đăng nhập Google trước."); return; }
+  saveTasksCache(); renderTasks();
+  try { await writeNoteCells(tok, [{ range: TASKS_TAB + "!I" + t.row, values: [[t.order]] }, { range: TASKS_TAB + "!I" + o.row, values: [[o.order]] }]); }
+  catch (e) { showNotice("Không đổi thứ tự được (" + (e.message || e) + ")."); loadTasks(true); }
+}
+function newTaskList() {
+  const name = prompt("Tên danh sách mới:");
+  if (!name || !name.trim()) return;
+  const n = name.trim();
+  if (allTaskLists().indexOf(n) < 0) { taskLists.push(n); saveTasksCache(); }
+  taskView = n; renderTasks();
+  const inp = document.getElementById("taskAddInput"); if (inp) inp.focus();
+}
+async function renameTaskList(oldName) {
+  const name = prompt("Đổi tên danh sách:", oldName);
+  if (!name || !name.trim() || name.trim() === oldName) return;
+  const n = name.trim();
+  const tok = await tasksToken(); if (!tok) { showNotice("Cần đăng nhập Google trước."); return; }
+  const data = [];
+  tasks.forEach(function (t) { if (t.list === oldName) { t.list = n; data.push({ range: TASKS_TAB + "!B" + t.row, values: [[n]] }); } });
+  taskLists = taskLists.map(function (x) { return x === oldName ? n : x; });
+  if (taskLists.indexOf(n) < 0 && n !== DEFAULT_TASK_LIST) taskLists.push(n);
+  taskView = n;
+  saveTasksCache(); renderTasks();
+  try { if (data.length) await writeNoteCells(tok, data); showToast("Đã đổi tên danh sách."); }
+  catch (e) { showNotice("Không đổi tên được (" + (e.message || e) + ")."); loadTasks(true); }
+}
+async function deleteTaskList(name) {
+  const inList = tasks.filter(function (t) { return t.list === name; });
+  if (!confirm('Xoá danh sách "' + name + '"' + (inList.length ? " và " + inList.length + " việc trong đó" : "") + "?")) return;
+  const tok = await tasksToken(); if (!tok) { showNotice("Cần đăng nhập Google trước."); return; }
+  const data = inList.map(function (x) { return { range: TASKS_TAB + "!A" + x.row + ":J" + x.row, values: [["", "", "", "", "", "", "", "", "", ""]] }; });
+  tasks = tasks.filter(function (t) { return t.list !== name; });
+  taskLists = taskLists.filter(function (x) { return x !== name; });
+  taskView = "__ALL__"; expandedTaskId = null;
+  saveTasksCache(); renderTasks();
+  try { if (data.length) await writeNoteCells(tok, data); showToast("Đã xoá danh sách."); }
+  catch (e) { showNotice("Không xoá được (" + (e.message || e) + ")."); loadTasks(true); }
+}
+async function clearDoneTasks() {
+  const doneTops = tasks.filter(function (t) { return !t.parent && t.done; });
+  if (!doneTops.length) return;
+  if (!confirm("Xoá hết " + doneTops.length + " việc đã hoàn thành (kèm việc phụ)?")) return;
+  const tok = await tasksToken(); if (!tok) { showNotice("Cần đăng nhập Google trước."); return; }
+  const drop = {}; const data = [];
+  doneTops.forEach(function (t) { drop[t.id] = 1; subtasksOf(t.id).forEach(function (s) { drop[s.id] = 1; }); });
+  tasks.forEach(function (t) { if (drop[t.id]) data.push({ range: TASKS_TAB + "!A" + t.row + ":J" + t.row, values: [["", "", "", "", "", "", "", "", "", ""]] }); });
+  tasks = tasks.filter(function (t) { return !drop[t.id]; });
+  saveTasksCache(); renderTasks();
+  try { await writeNoteCells(tok, data); showToast("Đã xoá hết việc đã xong."); }
+  catch (e) { showNotice("Không xoá được (" + (e.message || e) + ")."); loadTasks(true); }
+}
+function updateTasksBadge() {
+  const el = document.getElementById("tasksCnt"); if (!el) return;
+  const n = tasks.filter(function (t) { return !t.done; }).length;
+  el.textContent = n;
+  el.style.display = n ? "" : "none";
+}
+function renderTaskListChips() {
+  const box = document.getElementById("taskListChips"); if (!box) return;
+  const counts = {};
+  tasks.forEach(function (t) { if (!t.done && !t.parent) counts[t.list] = (counts[t.list] || 0) + 1; });
+  let h = '<button class="fchip' + (taskView === "__ALL__" ? " active" : "") + '" type="button" data-v="__ALL__">Tất cả</button>' +
+    '<button class="fchip' + (taskView === "__STAR__" ? " active" : "") + '" type="button" data-v="__STAR__">⭐ Có gắn sao</button>';
+  allTaskLists().forEach(function (ln) {
+    h += '<button class="fchip' + (taskView === ln ? " active" : "") + '" type="button" data-v="' + esc(ln) + '">' + esc(ln) + (counts[ln] ? ' <span class="chipcnt">' + counts[ln] + '</span>' : "") + '</button>';
+  });
+  h += '<button class="fchip" type="button" data-v="__NEW__">+ Danh sách mới</button>';
+  box.innerHTML = h;
+  box.querySelectorAll(".fchip").forEach(function (ch) {
+    ch.addEventListener("click", function () {
+      const v = ch.getAttribute("data-v");
+      if (v === "__NEW__") { newTaskList(); return; }
+      taskView = v; expandedTaskId = null; renderTasks();
+    });
+  });
+}
+function taskDetailHTML(t, isSub) {
+  return '<div class="taskdetail">' +
+    '<input class="taskin" id="tdTitle-' + t.id + '" value="' + esc(t.title) + '" placeholder="Tên việc">' +
+    '<textarea class="taskin" id="tdDesc-' + t.id + '" rows="2" placeholder="Thêm thông tin chi tiết">' + esc(t.desc || "") + '</textarea>' +
+    '<div class="taskdaterow">📅 <input class="taskin taskdatein" id="tdDate-' + t.id + '" value="' + esc(t.date || "") + '" placeholder="dd/mm/yyyy">' +
+      '<button class="btn small" type="button" data-act="datepick">Chọn ngày</button>' +
+      (t.date ? '<button class="btn small" type="button" data-act="dateclear">Xoá ngày</button>' : "") + '</div>' +
+    '<div class="taskbtns">' +
+      '<button class="btn primary small" type="button" data-act="save">Lưu chi tiết</button>' +
+      (isSub ? "" : '<button class="btn small" type="button" data-act="sub">+ Việc phụ</button>') +
+      '<button class="btn small" type="button" data-act="up" title="Đưa lên">↑</button>' +
+      '<button class="btn small" type="button" data-act="down" title="Đưa xuống">↓</button>' +
+      '<button class="btn small danger" type="button" data-act="del">🗑 Xoá việc</button>' +
+    '</div>' +
+    (isSub ? "" : '<div class="tasksubadd" id="subAdd-' + t.id + '" style="display:none"><input class="taskin" id="subIn-' + t.id + '" placeholder="Tên việc phụ… rồi Enter"><button class="btn small primary" type="button" data-act="subadd">Thêm</button></div>') +
+  '</div>';
+}
+function taskRowHTML(t, isSub) {
+  const di = taskDateInfo(t);
+  const subs = isSub ? [] : subtasksOf(t.id);
+  const openSubs = subs.filter(function (s) { return !s.done; }).length;
+  let h = '<div class="taskrow' + (isSub ? " tasksub" : "") + (t.done ? " taskdone" : "") + '" data-id="' + t.id + '">' +
+    '<button class="taskcheck' + (t.done ? " on" : "") + '" type="button" data-act="done" title="' + (t.done ? "Đánh dấu chưa xong" : "Đánh dấu đã xong") + '">' + (t.done ? "✓" : "") + '</button>' +
+    '<div class="taskmain">' +
+      '<div class="tasktitle" data-act="expand">' + esc(t.title) + '</div>' +
+      '<div class="taskmeta">' +
+        (taskView === "__ALL__" || taskView === "__STAR__" ? '<span class="tasklistchip">' + esc(t.list) + '</span>' : "") +
+        (di ? '<span class="taskdate ' + di.cls + '">📅 ' + esc(di.text) + '</span>' : "") +
+        (t.desc ? '<span class="taskdescprev">' + esc(t.desc.length > 60 ? t.desc.slice(0, 60) + "…" : t.desc) + '</span>' : "") +
+        (subs.length ? '<span class="tasksubcnt">' + (subs.length - openSubs) + "/" + subs.length + ' việc phụ</span>' : "") +
+      '</div>';
+  if (expandedTaskId === t.id) h += taskDetailHTML(t, isSub);
+  h += '</div>' +
+    '<button class="taskstar' + (t.star ? " on" : "") + '" type="button" data-act="star" title="Gắn dấu sao">' + (t.star ? "★" : "☆") + '</button>' +
+  '</div>';
+  if (!isSub) subs.forEach(function (s) { h += taskRowHTML(s, true); });
+  return h;
+}
+function renderTasks() {
+  renderTaskListChips();
+  updateTasksBadge();
+  const box = document.getElementById("tasksList");
+  const dbox = document.getElementById("tasksDoneBox");
+  if (!box) return;
+  const info = document.getElementById("taskAddInfo");
+  if (info) info.innerHTML = '📁 Sẽ thêm vào danh sách: <b>' + esc(addTargetList()) + '</b>';
+  const opts = document.getElementById("taskListOpts");
+  if (opts) {
+    opts.innerHTML = (taskView !== "__ALL__" && taskView !== "__STAR__")
+      ? '<button class="btn small" type="button" id="taskRenameList">Đổi tên danh sách</button><button class="btn small" type="button" id="taskDeleteList">Xoá danh sách</button>' : "";
+    const rb = document.getElementById("taskRenameList"); if (rb) rb.addEventListener("click", function () { renameTaskList(taskView); });
+    const db = document.getElementById("taskDeleteList"); if (db) db.addEventListener("click", function () { deleteTaskList(taskView); });
+  }
+  if (!tasks.length) {
+    box.innerHTML = getToken()
+      ? '<div class="empty">Chưa có việc nào. Thêm việc đầu tiên ở ô phía trên nhé.</div>'
+      : '<div class="empty">Việc cần làm nằm trong Google Sheet của bạn - đăng nhập Google một lần để xem và thêm việc.</div>';
+    if (dbox) dbox.innerHTML = "";
+    return;
+  }
+  let tops = tasks.filter(function (t) { return !t.parent; });
+  if (taskView === "__STAR__") tops = tops.filter(function (t) { return t.star; });
+  else if (taskView !== "__ALL__") tops = tops.filter(function (t) { return t.list === taskView; });
+  const open = tops.filter(function (t) { return !t.done; }).sort(taskCmp);
+  const done = tops.filter(function (t) { return t.done; }).sort(taskCmp);
+  let h = "";
+  if (taskView === "__ALL__") {
+    allTaskLists().forEach(function (ln) {
+      const g = open.filter(function (t) { return t.list === ln; });
+      if (!g.length) return;
+      h += '<div class="taskgroup">' + esc(ln) + ' <span>(' + g.length + ')</span></div>';
+      g.forEach(function (t) { h += taskRowHTML(t, false); });
+    });
+  } else {
+    open.forEach(function (t) { h += taskRowHTML(t, false); });
+  }
+  box.innerHTML = h || '<div class="empty">Không có việc nào đang chờ ở mục này. 🎉</div>';
+  if (dbox) {
+    if (!done.length) dbox.innerHTML = "";
+    else {
+      let dh = '<button class="taskdonehead" type="button" id="tasksDoneToggle">Đã hoàn thành (' + done.length + ') ' + (tasksDoneOpen ? "▾" : "▸") + '</button>';
+      if (tasksDoneOpen) {
+        done.forEach(function (t) { dh += taskRowHTML(t, false); });
+        dh += '<button class="btn small" type="button" id="taskClearDone" style="margin-top:8px">Xoá hết việc đã xong</button>';
+      }
+      dbox.innerHTML = dh;
+      const tg = document.getElementById("tasksDoneToggle"); if (tg) tg.addEventListener("click", function () { tasksDoneOpen = !tasksDoneOpen; renderTasks(); });
+      const cl = document.getElementById("taskClearDone"); if (cl) cl.addEventListener("click", clearDoneTasks);
+    }
+  }
+}
+function submitAddTask() {
+  const inp = document.getElementById("taskAddInput"); if (!inp) return;
+  const v = inp.value.trim(); if (!v) { inp.focus(); return; }
+  inp.value = "";
+  addTask(v, addTargetList(), "");
+}
+function submitSubtask(parentId) {
+  const inp = document.getElementById("subIn-" + parentId); if (!inp) return;
+  const v = inp.value.trim(); if (!v) return;
+  const p = taskById(parentId);
+  addTask(v, p ? p.list : DEFAULT_TASK_LIST, parentId);
+}
+function onTaskClick(e) {
+  const b = e.target.closest ? e.target.closest("[data-act]") : null; if (!b) return;
+  const rowEl = e.target.closest("[data-id]"); if (!rowEl) return;
+  const id = rowEl.getAttribute("data-id");
+  const act = b.getAttribute("data-act");
+  if (act === "done") toggleTaskDone(id);
+  else if (act === "star") toggleTaskStar(id);
+  else if (act === "expand") { expandedTaskId = expandedTaskId === id ? null : id; renderTasks(); }
+  else if (act === "save") saveTaskDetails(id);
+  else if (act === "del") deleteTask(id);
+  else if (act === "up") moveTask(id, -1);
+  else if (act === "down") moveTask(id, 1);
+  else if (act === "sub") { const bx = document.getElementById("subAdd-" + id); if (bx) { bx.style.display = bx.style.display === "none" ? "flex" : "none"; const ii = document.getElementById("subIn-" + id); if (ii) ii.focus(); } }
+  else if (act === "subadd") submitSubtask(id);
+  else if (act === "datepick") { const di = document.getElementById("tdDate-" + id); if (di) openDatePicker(di); }
+  else if (act === "dateclear") { const di2 = document.getElementById("tdDate-" + id); if (di2) di2.value = ""; }
+}
+function wireTasksUI() {
+  const addBtn = document.getElementById("taskAddBtn");
+  const addIn = document.getElementById("taskAddInput");
+  if (addBtn) addBtn.addEventListener("click", submitAddTask);
+  if (addIn) addIn.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); submitAddTask(); } });
+  const sel = document.getElementById("taskSortSel");
+  if (sel) { sel.value = taskSort; sel.addEventListener("change", function () { taskSort = sel.value; try { localStorage.setItem("sb-task-sort", taskSort); } catch (e) {} renderTasks(); }); }
+  ["tasksList", "tasksDoneBox"].forEach(function (cid) {
+    const c = document.getElementById(cid); if (!c) return;
+    c.addEventListener("click", onTaskClick);
+    c.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" && e.target.id && e.target.id.indexOf("subIn-") === 0) { e.preventDefault(); submitSubtask(e.target.id.slice(6)); }
+    });
+  });
+}
+
 function switchTab(name) {
   document.querySelectorAll(".tabbtn").forEach(function (b) {
     b.classList.toggle("active", b.getAttribute("data-tab") === name);
@@ -2558,6 +3022,7 @@ function switchTab(name) {
   });
   if (name === "stats") animateBars(document.getElementById("pane-stats"));
   if (name === "notes") loadNotes(!!getToken());
+  if (name === "tasks") loadTasks(!!getToken());
   window.scrollTo({ top: 0, behavior: REDUCED ? "auto" : "smooth" });
 }
 document.querySelectorAll(".tabbtn").forEach(function (b) {
@@ -2601,6 +3066,7 @@ try {
           const cache = loadCache();
           lessons = cache ? cache.lessons : [];
           notes = []; notesLoaded = false; loadNotesCache(); renderNotes();
+          tasks = []; tasksLoaded = false; taskLists = []; expandedTaskId = null; loadTasksCache(); renderTasks();
           renderAll_Tabs(false);
         }
         if (getToken()) refreshWithToken(getToken());
@@ -2613,6 +3079,7 @@ try {
         btn.textContent = "Đăng nhập Google";
         lessons = [];
         notes = []; notesLoaded = false; renderNotes();
+        tasks = []; tasksLoaded = false; taskLists = []; expandedTaskId = null; renderTasks();
         renderAll_Tabs(false);
       }
     });
@@ -2731,6 +3198,7 @@ async function createUserSheet(tok) {
         { properties: { title: "Bảng ôn tập", gridProperties: { frozenRowCount: 1 } } },
         { properties: { title: "Bảng bài tập", gridProperties: { frozenRowCount: 1 } } },
         { properties: { title: "Ghi chú", gridProperties: { frozenRowCount: 1 } } },
+        { properties: { title: "Việc cần làm", gridProperties: { frozenRowCount: 1 } } },
         { properties: { title: "Cấu hình", gridProperties: { frozenRowCount: 1 } } }
       ]
     })
@@ -2765,6 +3233,7 @@ async function createUserSheet(tok) {
     data.push({ range: tab + "!Q2:Q200", values: col(fQ) });
   });
   data.push({ range: "Ghi chú!A1:C1", values: [["Thời gian", "Ghi chú", "Môn"]] });
+  data.push({ range: "Việc cần làm!A1:J1", values: [["ID", "Danh sách", "Việc cần làm", "Chi tiết", "Ngày", "Sao", "Đã xong", "Việc cha", "Thứ tự", "Ngày tạo"]] });
   data.push({ range: "Cấu hình!A1:J26", values: CFG });
   const rv = await fetch("https://sheets.googleapis.com/v4/spreadsheets/" + id + "/values:batchUpdate", {
     method: "POST", headers: hdr,
@@ -2783,6 +3252,7 @@ async function createUserSheet(tok) {
     });
   });
   requests.push({ repeatCell: { range: { sheetId: sheetIds["Ghi chú"], startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 3 }, cell: { userEnteredFormat: { textFormat: { bold: true } } }, fields: "userEnteredFormat.textFormat.bold" } });
+  requests.push({ repeatCell: { range: { sheetId: sheetIds["Việc cần làm"], startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 10 }, cell: { userEnteredFormat: { textFormat: { bold: true } } }, fields: "userEnteredFormat.textFormat.bold" } });
   requests.push({ repeatCell: { range: { sheetId: sheetIds["Cấu hình"], startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 10 }, cell: { userEnteredFormat: { textFormat: { bold: true } } }, fields: "userEnteredFormat.textFormat.bold" } });
   const rb = await fetch("https://sheets.googleapis.com/v4/spreadsheets/" + id + ":batchUpdate", {
     method: "POST", headers: hdr,
@@ -3462,6 +3932,9 @@ if (_gb) _gb.addEventListener("click", async function () {
   renderNoteFilterChips();
   loadNotesCache();
   renderNotes();
+  loadTasksCache();
+  renderTasks();
+  wireTasksUI();
   try { const b = localStorage.getItem("sb-board"); if (b === "ex" || b === "study") { board = b; SR_TAB = BOARD_TABS[board]; } } catch (e) {}
   applyBoardUI();
   document.getElementById("boardStudy").addEventListener("click", function () { setBoard("study"); });
